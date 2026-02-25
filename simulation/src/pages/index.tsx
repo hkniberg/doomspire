@@ -446,6 +446,37 @@ export default function GameSimulation() {
                 📖 Game Rules
               </a>
 
+              <a
+                href="https://github.com/hkniberg/doomspire/blob/main/docs/history.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#8b4513",
+                  color: "white",
+                  textDecoration: "none",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  border: "2px solid #654321",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  transition: "all 0.2s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = "#a0522d";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = "#8b4513";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                📜 Rules History
+              </a>
+
               <SettingsMenu
                 debugMode={debugMode}
                 onToggleDebugMode={toggleDebugMode}

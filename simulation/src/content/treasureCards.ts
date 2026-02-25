@@ -99,7 +99,7 @@ Spend \`2 ore\` to gain \`+1 might\``,
     name: "Staff of protection",
     tier: 2,
     description: `You encounter a dying wizard leaning on an interesting looking staff. Choose one:
-**(1)** Steal it (lose \`2 fame\`). The staff extends your knight's protection range to 2 tiles (including diagonals).
+**(1)** Steal it (lose \`2 fame\`). The staff protects all neighbouring tiles, even diagonally.
 **(2)** Give him \`2 food\` (earn \`1 fame\`)
 **(3)** Move on`,
     count: 1,
