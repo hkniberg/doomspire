@@ -87,7 +87,7 @@ export default function CheatSheet() {
               <div className={styles.combatBlock}>
                 <h4 className={styles.combatTitle}>vs Monsters:</h4>
                 <ul className={styles.bulletList}>
-                  <li>Roll 1D3 + Might + adjacent support</li>
+                  <li>Roll 1D3 + Might + support</li>
                   <li>Win if ≥ monster's Might → gain rewards</li>
                   <li>Lose → return home, pay 1 resource or lose 1 Fame</li>
                 </ul>
@@ -96,15 +96,15 @@ export default function CheatSheet() {
               <div className={styles.combatBlock}>
                 <h4 className={styles.combatTitle}>vs Knights:</h4>
                 <ul className={styles.bulletList}>
-                  <li>Both roll 2D3 + Might + adjacent support</li>
+                  <li>Both roll 2D3 + Might + support</li>
                   <li>Winner gains 1 Fame, stays in tile</li>
-                  <li>Winner may steal 1 resource OR 1 item</li>
+                  <li>Winner may steal 1 item + resources (half of loser's resource tiles, rounded up)</li>
                   <li>Loser returns home</li>
                 </ul>
               </div>
 
               <div className={styles.supportNote}>
-                <strong>Adjacent Support:</strong> +2 per knight/warship in adjacent tiles
+                <strong>Support:</strong> +2 per knight/warship within 1 tile (including diagonals)
               </div>
             </section>
 
@@ -125,17 +125,17 @@ export default function CheatSheet() {
               <h3 className={styles.sectionTitle}>TERRITORIAL DISPUTES</h3>
               <div className={styles.buildingList}>
                 <div className={styles.supportNote}>
-                  <strong>Protection:</strong> Tiles with adjacent knights cannot be blockaded, conquered, or revolted
+                  <strong>Protection:</strong> Tiles with adjacent knights (no diagonals) cannot be blockaded or taken over
                 </div>
 
                 <div className={styles.building}>
                   <strong>Blockade Tile</strong>: Place knight on enemy tile → can harvest from it instead of owner
                 </div>
                 <div className={styles.building}>
-                  <strong>Incite Revolt</strong>: 1 Fame → Remove enemy claim (tile becomes unclaimed)
+                  <strong>Conquer</strong>: 2 Fame → Take over enemy tile by force
                 </div>
                 <div className={styles.building}>
-                  <strong>Conquer Tile</strong>: 1 Might → Take over enemy tile
+                  <strong>Bribe</strong>: 2 Gold → Take over enemy tile through corruption
                 </div>
               </div>
             </section>
@@ -148,8 +148,7 @@ export default function CheatSheet() {
                   adventure cards
                 </li>
                 <li>
-                  <strong>Voluntary</strong>: Use special locations, claim/blockade/conquer resource tiles, pick up/drop
-                  items
+                  <strong>Voluntary</strong>: Use special locations, claim resource tiles, pick up/drop items
                 </li>
                 <li>
                   <strong>Adventure Tiles</strong>: Draw card, remove adventure token
@@ -173,18 +172,19 @@ export default function CheatSheet() {
                   <strong>Gold</strong>: Have 12+ Gold
                 </li>
                 <li>
-                  <strong>Combat</strong>: Defeat the Dragon (8 + 2D3 Might)
+                  <strong>Combat</strong>: Defeat the Dragon (Might 8, rolls 2D3). Others may support you or the dragon.
                 </li>
               </ul>
               <div className={styles.supportNote}>Failure = knight gets eaten</div>
-              <div className={styles.supportNote}>Success = take treasure, fly home. Win if last treasure taken.</div>
+              <div className={styles.supportNote}>Success = +1 impression, take treasure (if any). Knight stays at Doomspire.</div>
+              <div className={styles.supportNote}>Must impress each round while at Doomspire, or be eaten. Max 1 per round.</div>
             </section>
 
             <section className={styles.section}>
               <h3 className={styles.sectionTitle}>VICTORY & FINAL RANKING</h3>
               <div className={styles.buildingList}>
                 <div className={styles.building}>
-                  <strong>1. King of Doomspire</strong>: 3rd player to impress dragon
+                  <strong>1. King of Doomspire</strong>: First to reach 3 dragon impressions
                 </div>
                 <div className={styles.building}>
                   <strong>2. Hand of the King</strong>: Most resource tiles (tiebreaker: starred tiles)

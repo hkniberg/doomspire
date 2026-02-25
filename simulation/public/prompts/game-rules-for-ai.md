@@ -1,5 +1,7 @@
 # LORDS OF DOOMSPIRE - Rulebook (AI Version)
 
+TODO: Needs update.
+
 **Note for AI Players:** This document contains all game rules. However, player-to-player interactions (knight combat, trading, territory disputes) are only allowed starting from Round 2. In Round 1, focus on exploration, monster combat, claiming tiles, and building your economy.
 
 ---

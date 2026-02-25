@@ -27,9 +27,11 @@ Each player starts with:
 
 ## Victory Conditions
 
-The game ends when the **dragon has been impressed 3 times in total**, and leaves the island in the capable hands of whoever impressed it last.
+The first player to impress the dragon 3 times wins the game and becomes **King of Doomspire**. This is tracked on the Dragon Impression track (alongside the Fame and Might tracks).
 
-Players can impress the dragon by reaching **Doomspire** (hidden in the center of the board) and fulfilling any of these conditions:
+The remaining players compete for the titles of **Hand of the King** (most resource tiles), **Master of Coin** (most gold), and **Court Jester** (whoever is left).
+
+Impress the dragon by reaching **Doomspire** (hidden in the center of the board) and fulfilling any of these conditions:
 
 - **Fame**: Have 15+ Fame. The dragon is impressed by your legendary reputation.
 - **Economy**: Own 4+ starred resource tiles. The dragon is impressed by your territorial dominance.
@@ -39,7 +41,9 @@ Players can impress the dragon by reaching **Doomspire** (hidden in the center o
 
 Failure to impress means becoming the dragon's next meal.
 
-The first two times the dragon gets impressed, the knight that impressed it gets flown home and given 2 resources of their choice. The third player to impress the dragon wins the game and becomes **King of Doomspire**. The remaining players compete for the titles of **Hand of the King** (most resource tiles), **Master of Coin** (most gold), and **Court Jester** (whoever is left).
+A player's knight can stay at Doomspire and keep impressing the dragon each round, as long as they continue to meet a qualifying condition (or until some other player's knight kicks them out)
+
+When Doomspire is first revealed, place 3 treasure stacks on the tile (4 random resources each). Each time any player impresses the dragon (while treasure remains), they take one treasure stack as reward.
 
 ---
 
@@ -88,7 +92,7 @@ Use your pre-rolled action dice one at a time to move and do things with your kn
 
 ### Move knight (dice action)
 
-Use a dice to move one knight up to that number of steps, and potentially interact with the tile you land on.
+Use a dice to move one knight up to that number of steps, and potentially interact with the tile you end on.
 
 - Only horizontal/vertical movement, no diagonal
 - Can move fewer steps than the die value, or even move zero steps to interact with your current tile.
@@ -110,7 +114,7 @@ Use a dice to move one knight up to that number of steps, and potentially intera
 
 - When a knight enters a tile (whether by normal movement or boat transport), a tile interaction may happen. See Tile Interaction below.
 - A dice action can also be used to interact with the current tile without moving - as if the knight entered the same tile again. For example you can stay in the mercenary camp tile and use a dice action each round to gain might.
-- Once a knight has interacted with a tile, they cannot use any more action dice this turn.
+- Once a knight has interacted with a tile, that knight cannot use any more action dice this turn.
 
 ### Move boat (dice action)
 
@@ -239,7 +243,7 @@ When you draw an adventure card, you may get a:
 
 ## Monster combat
 
-Monstar combat happens when:
+Monster combat happens when:
 
 - A knight enters a tile with a monster
 - A knight draws a monster adventure card
@@ -258,7 +262,7 @@ Roll 1D3:
 
 - Roll 1D3
 - Add your Might
-- Add +2 for each supporting knight or warship adjacent to the combat tile. Even from other players, if they choose to support you. No diagonals.
+- Add +2 for each supporting knight or warship within 1 tile of the combat tile, including diagonals. Even from other players, if they choose to support you.
 - Decide whether to use bonuses from items or followers.
 - The resulting attack value must be greater than or equal to the monster's Might to win.
 
@@ -309,16 +313,19 @@ When doomspire is revealed, the dragon's treasure hoard is also revealed.
 - Randomly organize them into 3 stacks (4 resources per stack)
 - Place the 3 stacks on the dragon tile
 
-When you enter the doomspire tile, you must impress the dragon or get eaten.
+When you enter or interact with the doomspire tile, you attempt to impress the dragon.
 
 - If you have 15+ fame, 12+ gold, or own 4+ starred resource tiles, you automatically impress the dragon.
 - If not, you must fight the dragon - fleeing is impossible. You can't kill the dragon, but defeating it in combat will impress it.
+- A player can impress the dragon at most once per round.
+- A knight can stay at Doomspire, but needs to impress the dragon each round or be eaten.
+- If an opposing knight is at Doomspire when you enter, you must fight them first (normal PVP combat rules apply). If you win, you then face the dragon and must impress it. If you lose, you go home without facing the dragon, and lose resources to the other player. See 'Resolving knight to knight combat' section.
 
 ### Result of impressing the dragon
 
-- Take one of the treasure stacks as reward.
-- If that was the last treasure stack, the dragon has been impressed for the third time and you win the game immediately. See Final Ranking section.
-- Otherwise the dragon flies you to your home tile.
+- If there is a treasure stack remaining, take one as reward.
+- Gain +1 on your Dragon Impression track.
+- If you have reached 3 impressions, you win the game immediately. See Final Ranking section.
 
 ### Result of failing to impress the dragon
 
@@ -330,11 +337,11 @@ If you lose your last knight, you can choose whether to stay in the game and sav
 
 ## Final Ranking
 
-When the dragon leaves the island (after being impressed three times), establish the final ranking:
+When a player reaches 3 dragon impressions, the game ends and the final ranking is established:
 
 **Final ranking**:
 
-- **King of Doomspire**: The last player to impress the dragon.
+- **King of Doomspire**: The player who reached 3 dragon impressions.
 - **Hand of the King**: Player with the most resource tiles claimed. Tiebreaker: most starred resource tiles. If still tied, King decides.
 - **Master of Coin**: Player with the most gold. Tiebreaker: total resources (gold + food + wood + ore). If still tied, King decides.
 - **Court Jester**: The remaining player. That player must clean up the mess (but may beg for help).
@@ -514,13 +521,26 @@ Roll 1D3:
 - Both players roll 2D3
 - Each knight applies their own combat bonuses: Might + supporting units + item/follower effects. Same as with monster combat.
 - Highest value wins. Ties are rerolled until someone wins.
-- The winner gains 1 fame and gets to steal one resource or item.
+- The winner gains 1 fame and stays in the tile.
 - The losing knight goes home.
+- The winner may loot the defeated player:
+  - Steal 1 item from the defeated knight's inventory (winner chooses which).
+  - Steal resources from the defeated player. The number of resources to steal is half of the number of resource tiles owned by that player (rounded up). The winner chooses which resources to steal. 
 
-### Stealing resource or items
 
-- Items are personal - they are stolen from the defeated knight and given to the winning knight. You can't take items from or give items to a knight that wasn't in the battle.
+### Looting rules
+
+- Items are stolen from the defeated knight and given to the winning knight (if there is space in the inventory). You can't take items from or give items to a knight that wasn't in the battle.
+- Resources are stolen from the defeated player. The winner chooses which resources to take. 
 - Followers cannot be stolen.
+
+> Example: Looting resources
+>
+> Alice owns 2 resource tiles in addition to her home tile. 
+> Alice's knight has two items: a spear and a backpack.
+> Alice's knight loses a battle against Bob's knight.
+> Bob is allowed to steal 1 item + 2 resources (since Alice owns 3 resource tiles in total, and 3/2 is 2 rounded up).
+> Bob decides to steal the spear and 2 gold. He moves the spear to his attacking knight.
 
 ---
 
@@ -535,8 +555,8 @@ The dragon has might 8.
 - Pick another player to represent the dragon - ideally your biggest rival!
 - Both you and the dragon roll 2D3
 - Apply combat bonuses: Might + supporting units + item/follower effects.
+- Other players may choose to support you or the dragon.
 - Highest value wins. Ties are rerolled until someone wins.
-
 Losing means getting eaten by the dragon.
 
 ---
@@ -547,26 +567,20 @@ Players can dispute control over resource tiles.
 
 **Protecting a resource tile**:
 
-- A claimed resource tile is protected if the owner has a knight in an adjacent tile.
-- A protected tile cannot be interfered with. If an opposing knight is in another player's protected resource tile, it cannot blockade, conquer, or incite revolts.
+- A claimed resource tile is protected if the owner has a knight in an adjacent tile (no diagonals).
+- A protected tile cannot be interfered with. If an opposing knight is in another player's protected resource tile, it cannot blockade or conquer it.
 
 **Blockading a resource tile** (free):
 
 - If a knight is on an unprotected resource tile owned by another player, that resource tile is blockaded.
 - A blockaded tile is treated just as if it was owned by the blockading player, as long as the blocking knight is there. When blockaded, the owner cannot harvest from it, and the blockader can.
 
-**Inciting revolt on a resource tile** (costs fame):
+**Taking over a resource tile** (costs fame or gold):
 
-- You can use treachery to incite revolt on another player's unprotected resource tile
-- Reduce your fame by 1 and remove the other player's claim (but don't take over the tile)
-- Can also be done after combat
-- This frees up the tile, so you can take it next turn by staying in the tile and using an action die.
-
-**Conquering a resource tile** (costs might):
-
-- You can use violence to take over another player's unprotected resource tile
-- Reduce your might by 1 and switch the other player's claim for your own
-- Can also be done after combat
+- You can take over another player's unprotected resource tile in two ways:
+  - **Conquer** (2 fame): Sacrifice 2 fame to seize the tile by force. Replace the other player's flag with your own.
+  - **Bribe** (2 gold): Pay 2 gold to take over the tile through corruption. Replace the other player's flag with your own.
+- Can also be done after combat.
 
 > Blockade example:
 >
