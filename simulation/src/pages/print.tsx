@@ -416,6 +416,23 @@ export default function PrintPage() {
           </Link>
 
           <Link
+            href="/print/PrintFateCards"
+            style={{
+              display: "inline-block",
+              padding: "1rem 2rem",
+              backgroundColor: "#2c3e50",
+              color: "white",
+              textDecoration: "none",
+              borderRadius: "4px",
+              fontSize: "1.1rem",
+              marginRight: "1rem",
+              marginBottom: "1rem",
+            }}
+          >
+            Print Fate Cards
+          </Link>
+
+          <Link
             href="/print/knights"
             style={{
               display: "inline-block",

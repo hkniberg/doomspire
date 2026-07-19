@@ -28,7 +28,7 @@ class ImageGenerator {
     this.openai = new OpenAI({ apiKey });
   }
 
-  async generateImage(prompt, outputPath = null) {
+  async generateImage(prompt, outputPath = null, size = OPENAI_DEFAULT_SIZE) {
     try {
       console.log(
         `🎨 Generating image with prompt: "${prompt.substring(0, 100)}${
@@ -40,7 +40,7 @@ class ImageGenerator {
       const response = await this.openai.images.generate({
         model: OPENAI_MODEL,
         prompt: prompt,
-        size: OPENAI_DEFAULT_SIZE,
+        size: size,
         quality: "medium", // low = fast drafts, high = final assets
         n: 1,
       });
@@ -98,6 +98,7 @@ Examples:
 
 Options:
   --output, -o    Specify output filename (optional)
+  --size, -s      Image size: 1024x1024, 1536x1024, or 1024x1536 (default: 1024x1024)
   --help, -h      Show this help message
 
 Note: Make sure to create a .env file with your OPENAI_API_KEY
@@ -115,10 +116,14 @@ async function main() {
   // Parse arguments
   let prompt = "";
   let outputPath = null;
+  let size = OPENAI_DEFAULT_SIZE;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--output" || args[i] === "-o") {
       outputPath = args[i + 1];
+      i++; // Skip next argument
+    } else if (args[i] === "--size" || args[i] === "-s") {
+      size = args[i + 1];
       i++; // Skip next argument
     } else if (!args[i].startsWith("--")) {
       prompt = args[i];
@@ -133,7 +138,7 @@ async function main() {
 
   try {
     const generator = new ImageGenerator();
-    await generator.generateImage(prompt, outputPath);
+    await generator.generateImage(prompt, outputPath, size);
   } catch (error) {
     console.error("❌ Generation failed:", error.message);
     process.exit(1);
