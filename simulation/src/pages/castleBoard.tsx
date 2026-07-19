@@ -126,8 +126,8 @@ export default function CastleBoard() {
   return (
     <>
       <Head>
-        <title>Lords of Doomspire - Castle Board</title>
-        <meta name="description" content="Castle board with building information for Lords of Doomspire" />
+        <title>Lords of Doomspire - Island Board</title>
+        <meta name="description" content="Island board with building information for Lords of Doomspire" />
       </Head>
 
       <div
@@ -139,7 +139,7 @@ export default function CastleBoard() {
           overflow: "hidden",
         }}
       >
-        {/* Castle Board Background */}
+        {/* Island Board Background */}
         <div
           style={{
             position: "relative",

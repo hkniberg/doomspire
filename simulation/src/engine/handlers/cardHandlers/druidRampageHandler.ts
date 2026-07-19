@@ -103,7 +103,7 @@ export async function handleDruidRampage(
     icon: bearCard.icon,
     might: bearCard.might,
     fame: bearCard.fame,
-    isBeast: bearCard.isBeast,
+    monsterType: bearCard.monsterType,
     resources: {
       food: bearCard.resources.food || 0,
       wood: bearCard.resources.wood || 0,

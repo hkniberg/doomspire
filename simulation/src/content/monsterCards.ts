@@ -1,4 +1,4 @@
-import { AdventureThemeType, TileTier } from "../lib/types";
+import { AdventureThemeType, MonsterType, TileTier } from "../lib/types";
 
 export interface MonsterCard {
   id: string;
@@ -10,7 +10,7 @@ export interface MonsterCard {
   fame: number;
   resources: Record<string, number>;
   count: number; // How many cards of this monster to include in deck
-  isBeast?: boolean; // Whether this monster is classified as a beast (default false)
+  monsterType: MonsterType; // Shown as a tag on the card; some items refer to these types (e.g. spear vs beasts)
   disabled?: boolean; // If true, card is not added to deck but still shown in UI
   imagePromptGuidance?: string; // If provided, this will be used to generate the image for the card
 }
@@ -32,7 +32,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 2, wood: 0, ore: 0, gold: 0 },
     count: 2,
-    isBeast: true,
+    monsterType: "beast",
   },
   {
     id: "boar",
@@ -44,7 +44,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 2, wood: 0, ore: 0, gold: 0 },
     count: 2,
-    isBeast: true,
+    monsterType: "beast",
   },
   {
     id: "bandit",
@@ -56,6 +56,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 0, wood: 0, ore: 0, gold: 2 },
     count: 2,
+    monsterType: "humanoid",
   },
 
   // Cave Theme Monsters
@@ -69,6 +70,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 0, wood: 0, ore: 2, gold: 0 },
     count: 2,
+    monsterType: "humanoid",
   },
   {
     id: "rock-golem",
@@ -80,6 +82,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 0, wood: 0, ore: 2, gold: 0 },
     count: 2,
+    monsterType: "golem",
   },
   {
     id: "troll-spawn",
@@ -91,6 +94,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 2,
     resources: { food: 0, wood: 0, ore: 2, gold: 2 },
     count: 2,
+    monsterType: "troll",
   },
 
   // Grove Theme Monsters
@@ -104,6 +108,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 0, wood: 2, ore: 0, gold: 0 },
     count: 2,
+    monsterType: "plant",
     imagePromptGuidance: "A mischevious plant spirit",
   },
   {
@@ -116,6 +121,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 0, wood: 2, ore: 0, gold: 0 },
     count: 2,
+    monsterType: "fey",
     imagePromptGuidance: "A scary but beautiful fairy",
   },
   {
@@ -128,6 +134,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 0, wood: 3, ore: 0, gold: 0 },
     count: 2,
+    monsterType: "plant",
     imagePromptGuidance: "The young gangly version of an ent, dangerous and intelligent.",
   },
 
@@ -143,7 +150,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 2,
     resources: { food: 3, wood: 0, ore: 0, gold: 0 },
     count: 2,
-    isBeast: true,
+    monsterType: "beast",
   },
   {
     id: "assassin",
@@ -155,6 +162,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 2,
     resources: { food: 0, wood: 0, ore: 0, gold: 3 },
     count: 2,
+    monsterType: "humanoid",
   },
 
   // Cave Theme Tier 2 Monsters
@@ -168,6 +176,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 2,
     resources: { food: 0, wood: 0, ore: 3, gold: 0 },
     count: 2,
+    monsterType: "golem",
   },
   {
     id: "troll",
@@ -179,6 +188,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 3,
     resources: { food: 0, wood: 0, ore: 3, gold: 3 },
     count: 1,
+    monsterType: "troll",
   },
 
   // Grove Theme Tier 2 Monsters
@@ -192,6 +202,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 1,
     resources: { food: 0, wood: 3, ore: 0, gold: 0 },
     count: 2,
+    monsterType: "humanoid",
     imagePromptGuidance: "A battle-hardened cold-blooded female elven warrior",
   },
   {
@@ -204,6 +215,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 2,
     resources: { food: 0, wood: 4, ore: 0, gold: 0 },
     count: 1,
+    monsterType: "plant",
   },
 
   // TIER 3 MONSTERS
@@ -218,7 +230,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 3,
     resources: { food: 3, wood: 0, ore: 0, gold: 2 },
     count: 1,
-    isBeast: true,
+    monsterType: "beast",
   },
   {
     id: "fallen-knight",
@@ -230,6 +242,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 3,
     resources: { food: 0, wood: 0, ore: 3, gold: 2 },
     count: 1,
+    monsterType: "undead",
   },
 
   // Cave Theme Tier 3 Monsters
@@ -243,6 +256,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 3,
     resources: { food: 0, wood: 0, ore: 2, gold: 3 },
     count: 1,
+    monsterType: "demon",
   },
   {
     id: "troll-lord",
@@ -254,6 +268,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 4,
     resources: { food: 0, wood: 0, ore: 3, gold: 3 },
     count: 1,
+    monsterType: "troll",
   },
 
   // Grove Theme Tier 3 Monsters
@@ -267,7 +282,7 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 3,
     resources: { food: 3, wood: 3, ore: 0, gold: 0 },
     count: 1,
-    isBeast: true,
+    monsterType: "beast",
   },
   {
     id: "ancient",
@@ -279,5 +294,6 @@ export const MONSTER_CARDS: MonsterCard[] = [
     fame: 3,
     resources: { food: 0, wood: 4, ore: 3, gold: 0 },
     count: 1,
+    monsterType: "plant",
   },
 ];

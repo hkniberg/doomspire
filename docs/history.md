@@ -101,3 +101,54 @@ Based on playtest feedback identifying these problems: turtling too safe, PVP no
 - **Conquer/Bribe tile takeover**: Removed "Incite Revolt" (1 fame to unclaim) and "Conquer" (1 might to take over). Replaced with two options: Conquer (2 fame) or Bribe (2 gold).
 - **Combat support includes diagonals**: Support range expanded from 4 orthogonal tiles to all 8 surrounding tiles. Tile protection remains orthogonal only.
 - **Doomspire PVP**: If an opposing knight is at Doomspire, you fight them first, then face the dragon. Other players can support the dragon in combat.
+
+## Spring 2026 - Fate Cards
+
+A deck of ~27 fate cards added, one drawn per round at the start of the roll phase, applying immediately for that round. Card types: council votes (fame-weighted YES/NO or TARGET votes), events, gatherings, and minor cards.
+
+Design rationale (from the original draft):
+
+- **Council votes naturally create catch-up**: Tax the Crown, Land Reform, Charity Decree all redistribute from strong to weak. Three weaker players can outvote one leader.
+- **Fame is political power**: High fame = more votes. This makes fame valuable throughout the game, not just at Doomspire.
+- **Targeted vs. blanket votes create different dynamics**: TARGET cards let the majority punish one player. YES/NO blanket cards (Famine, gatherings) create "this hurts you more than me" asymmetric tradeoffs.
+- **Gatherings are board resets**: Moving all knights to one location disrupts camping strategies, creates new positions to play from, and can pull knights away from Doomspire.
+- **Dragon cards add Doomspire drama**: Dragon Sleeping rewards combat builds, Dragon Off Hunting creates a treasure race with PVP at Doomspire.
+- **Deck composition**: ~41% council votes (interactive), ~37% events (game-changing), ~11% gatherings (dramatic), ~11% minor (breather).
+
+## July 19, 2026 - Post-Playtest Tweaks
+
+Victory and Doomspire:
+
+- **Win at 2 dragon impressions** (was 3). Fame condition raised to 17+ (was 15). Impressions are now marked on the island board instead of a shared track.
+- **Doomspire kick-out reward**: After defeating an opposing knight at Doomspire, choose to face the dragon as usual, or accept a free dragon ride home (no impression attempt, no risk).
+
+Combat:
+
+- **Support nerfed**: Each player can provide at most one support (+2) per battle, regardless of how many knights/warships they have in range.
+- **Monster types added**: Each monster card shows a type tag (Beast, Humanoid, Troll, Golem, Plant, Fey, Undead, Demon), so items like the spear ("+1 vs beasts") are unambiguous.
+- **Underdog shields clarified**: Porcupine/Hedgehog compare full combat totals (dice + might + support + items, excluding the shield's own bonus). If both knights carry one, the shields cancel. First entry in a new "Rule Clarifications" section for edge cases.
+
+Fate card timing:
+
+- **Fate Phase added**: Rounds now have 4 phases (Fate, Roll, Move, Harvest). The fate card is drawn and fully resolved (including votes) before dice are rolled, since some cards affect dice counts and harvest decisions.
+- **No more delay/preview**: The fate card is drawn at the start of each round and applies immediately, starting round 1.
+- **Settling**: New predecided first fate card (placed face up on top during setup) - no deliberate combat in round 1. Replaces the hardcoded round-1 no-PVP rules.
+
+Simplifications and terminology:
+
+- **Adventure card themes removed** (beast/cave/grove card backs) - nobody used them when drawing.
+- **Regions instead of tiers for board areas**: Flatlands (outer two layers, was "Plains"), Hills, Mountains. "Tier" now refers only to cards. "Biome" renamed to "region".
+- **Village** replaces flag/settlement as the claim marker term. **Island board** replaces castle board.
+- **Sprinting clarified**: Multiple dice can be combined into one longer movement (1+2 = up to 3 steps).
+
+Content:
+
+- **The Dragon's Egg** (tier 2 treasure): Carry to Doomspire to impress the dragon once, then it's gone.
+- **One/Second ring**: Now "impress the dragon" instead of the outdated "exile the dragon".
+- Trader deck is placed face up and unshuffled, open for browsing.
+
+Structure:
+
+- **Game Setup section** added to the rulebook (island, decks & tokens, per-player steps) - written for first-time players.
+- **Optional Add-ons section**: Knight cards (unique knight personas) and Exploration mode (all tiles start face down, fame condition 20+) kept out of the base game.
+- `components.md` reduced to a pure component inventory; `fate-cards-draft.md` deleted (cards live in `fateCards.ts`, rules in `game-rules.md`, rationale here).

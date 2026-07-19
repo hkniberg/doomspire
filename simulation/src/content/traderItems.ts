@@ -39,7 +39,7 @@ export const TRADER_ITEMS: TraderItem[] = [
   {
     id: "the-hedgehog",
     name: "The Hedgehog",
-    description: "When battling another player, if their might is higher than yours, you have `+1 might` for that fight.",
+    description: "When battling another player, if their **combat total** is higher than yours (dice, might, support, and items all count), you have `+1 might` for that fight.",
     cost: 1,
     count: 2,
   },

@@ -23,9 +23,18 @@ export default function CheatSheet() {
                 <div className={styles.listItem}>
                   <span className={styles.number}>1</span>
                   <div>
-                    <strong>Roll Dice Phase</strong> <em>(Parallel)</em>
+                    <strong>Fate Phase</strong> <em>(Together)</em>
                     <ul className={styles.bulletList}>
                       <li>Rotate starting player token to next player</li>
+                      <li>Draw fate card (applies immediately, this round only; council votes are fame-weighted)</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className={styles.listItem}>
+                  <span className={styles.number}>2</span>
+                  <div>
+                    <strong>Roll Dice Phase</strong> <em>(Parallel)</em>
+                    <ul className={styles.bulletList}>
                       <li>Roll 1 die for castle + 1 per knight</li>
                       <li>
                         <strong>Dice Tax</strong>: Pay 2 Food per die after first 2
@@ -34,7 +43,7 @@ export default function CheatSheet() {
                   </div>
                 </div>
                 <div className={styles.listItem}>
-                  <span className={styles.number}>2</span>
+                  <span className={styles.number}>3</span>
                   <div>
                     <strong>Move Phase</strong> <em>(Sequential from Starting Player)</em>
                     <ul className={styles.bulletList}>
@@ -49,7 +58,7 @@ export default function CheatSheet() {
                   </div>
                 </div>
                 <div className={styles.listItem}>
-                  <span className={styles.number}>3</span>
+                  <span className={styles.number}>4</span>
                   <div>
                     <strong>Harvest Phase</strong> <em>(Parallel)</em>
                     <ul className={styles.bulletList}>
@@ -73,11 +82,14 @@ export default function CheatSheet() {
               <ul className={styles.bulletList}>
                 <li>Horizontal/vertical only (no diagonal)</li>
                 <li>Must stop when entering unexplored tile or tile with monster</li>
-                <li>Cannot stop in same tile as other knights (except special tiles)</li>
-                <li>Cannot pass through monster tiles</li>
-                <li>Can pass through other knights (they may force combat)</li>
+                <li>Cannot enter a tile with your own knight (except special tiles)</li>
+                <li>Stopping on an opposing knight = combat</li>
+                <li>Can pass through opposing knights (they may force combat)</li>
                 <li>Cannot enter enemy home tiles</li>
                 <li>One tile interaction per knight per turn</li>
+                <li>
+                  <strong>Sprinting</strong>: Combine multiple dice into one longer move (1+2 = up to 3 steps)
+                </li>
               </ul>
             </section>
 
@@ -104,7 +116,8 @@ export default function CheatSheet() {
               </div>
 
               <div className={styles.supportNote}>
-                <strong>Support:</strong> +2 per knight/warship within 1 tile (including diagonals)
+                <strong>Support:</strong> +2 per supporting player with a knight/warship within 1 tile (including
+                diagonals). Max one support per player per battle.
               </div>
             </section>
 
@@ -148,7 +161,8 @@ export default function CheatSheet() {
                   adventure cards
                 </li>
                 <li>
-                  <strong>Voluntary</strong>: Use special locations, claim resource tiles, pick up/drop items
+                  <strong>Voluntary</strong>: Use special locations, claim resource tiles (place a village), pick
+                  up/drop items
                 </li>
                 <li>
                   <strong>Adventure Tiles</strong>: Draw card, remove adventure token
@@ -163,7 +177,7 @@ export default function CheatSheet() {
               <h3 className={styles.sectionTitle}>IMPRESSING THE DRAGON</h3>
               <ul className={styles.victoryList}>
                 <li>
-                  <strong>Fame</strong>: Have 15+ Fame
+                  <strong>Fame</strong>: Have 17+ Fame
                 </li>
                 <li>
                   <strong>Economy</strong>: Own 4+ starred resource tiles
@@ -178,13 +192,16 @@ export default function CheatSheet() {
               <div className={styles.supportNote}>Failure = knight gets eaten</div>
               <div className={styles.supportNote}>Success = +1 impression, take treasure (if any). Knight stays at Doomspire.</div>
               <div className={styles.supportNote}>Must impress each round while at Doomspire, or be eaten. Max 1 per round.</div>
+              <div className={styles.supportNote}>
+                Kicked out an opposing knight? Choose: face the dragon, or get a free dragon ride home.
+              </div>
             </section>
 
             <section className={styles.section}>
               <h3 className={styles.sectionTitle}>VICTORY & FINAL RANKING</h3>
               <div className={styles.buildingList}>
                 <div className={styles.building}>
-                  <strong>1. King of Doomspire</strong>: First to reach 3 dragon impressions
+                  <strong>1. King of Doomspire</strong>: First to reach 2 dragon impressions
                 </div>
                 <div className={styles.building}>
                   <strong>2. Hand of the King</strong>: Most resource tiles (tiebreaker: starred tiles)

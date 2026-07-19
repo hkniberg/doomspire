@@ -18,9 +18,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: join(__dirname, ".env") });
 
-const OPENAI_MODEL = "gpt-image-1";
+const OPENAI_MODEL = "gpt-image-2";
 const SIZE = "1024x1024"; // Square format for treasure cards
-const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-0";
+const DEFAULT_CLAUDE_MODEL = "claude-sonnet-5";
 const MAX_TREASURES = 30; // For testing purposes
 
 class TreasureImageGenerator {
@@ -146,8 +146,8 @@ class TreasureImageGenerator {
   parseTreasureObject(treasureString) {
     try {
       // Handle both single and double quotes for id
-      const idMatch = treasureString.match(/id:\s*["']([^"']+)["']/);
-      const nameMatch = treasureString.match(/name:\s*["']([^"']+)["']/);
+      const idMatch = treasureString.match(/id:\s*(["'])([\s\S]*?)\1/);
+      const nameMatch = treasureString.match(/name:\s*(["'])([\s\S]*?)\1/);
 
       // Handle description with template literals (backticks) and regular quotes
       const descriptionMatch = treasureString.match(
@@ -177,8 +177,8 @@ class TreasureImageGenerator {
         .trim();
 
       return {
-        id: idMatch[1],
-        name: nameMatch[1],
+        id: idMatch[2],
+        name: nameMatch[2],
         description: description,
         tier: parseInt(tierMatch[1]),
         imagePromptGuidance: guidanceMatch ? guidanceMatch[1] : undefined,

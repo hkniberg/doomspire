@@ -6,9 +6,10 @@ export class GameSettings {
   static readonly DRAGON_BASE_MIGHT = 8; // Base might before adding D3
 
   // Victory Condition Settings
-  static readonly VICTORY_FAME_THRESHOLD = 15; // Fame needed to win by visiting dragon
-  static readonly VICTORY_GOLD_THRESHOLD = 15; // Gold needed to win by visiting dragon
+  static readonly VICTORY_FAME_THRESHOLD = 17; // Fame needed to impress the dragon
+  static readonly VICTORY_GOLD_THRESHOLD = 12; // Gold needed to impress the dragon
   static readonly VICTORY_STARRED_TILES_THRESHOLD = 4; // Number of starred resource tiles needed to win
+  static readonly DRAGON_IMPRESSIONS_TO_WIN = 2; // Number of dragon impressions needed to win the game
 
   static readonly FAME_AWARD_FOR_EXPLORATION = 1; // Fame awarded for exploring a tile group
 

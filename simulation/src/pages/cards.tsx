@@ -7,6 +7,7 @@ import {
   formatTraderContent,
   formatTreasureContent,
   getBorderColor,
+  getMonsterTypeTag,
 } from "../components/cards/Card";
 import { ENCOUNTERS } from "../content/encounterCards";
 import { EVENT_CARDS } from "../content/eventCards";
@@ -22,7 +23,6 @@ type ExtendedCard = (
   | {
       type: "trader";
       tier: number;
-      theme: "trader";
       id: string;
     }
 ) & {
@@ -34,7 +34,6 @@ export default function CardsPage() {
   const [hideDuplicates, setHideDuplicates] = useState(false);
   const [cardTypeFilter, setCardTypeFilter] = useState<ExtendedCardType | "all">("all");
   const [tierFilter, setTierFilter] = useState<number | "all">("all");
-  const [themeFilter, setThemeFilter] = useState<string | "all">("all");
 
   // Create extended card array by looking up original data
   const allCards: ExtendedCard[] = [
@@ -71,7 +70,6 @@ export default function CardsPage() {
       return {
         ...card,
         tier: 1, // Traders are always tier 1
-        theme: "trader" as const, // Special theme for traders
         originalData,
         id: `${card.type}-${index}`,
       };
@@ -97,8 +95,7 @@ export default function CardsPage() {
   const filteredCards = cardsToShow.filter((card) => {
     const matchesType = cardTypeFilter === "all" || card.type === cardTypeFilter;
     const matchesTier = tierFilter === "all" || card.tier === tierFilter;
-    const matchesTheme = themeFilter === "all" || card.theme === themeFilter;
-    return matchesType && matchesTier && matchesTheme;
+    return matchesType && matchesTier;
   });
 
   const renderCard = (card: ExtendedCard) => {
@@ -115,7 +112,7 @@ export default function CardsPage() {
       enlargeOnClick: true,
       title: `${card.type.charAt(0).toUpperCase() + card.type.slice(1)}: ${
         card.originalData.name
-      } (Tier ${card.tier}, ${card.theme})${card.originalData.disabled ? " [DISABLED]" : ""}`,
+      } (Tier ${card.tier})${card.originalData.disabled ? " [DISABLED]" : ""}`,
     };
 
     switch (card.type) {
@@ -126,6 +123,7 @@ export default function CardsPage() {
             imageUrl={`/monsters/${card.originalData.id}.png`}
             content={formatMonsterContent(card.originalData)}
             contentFontSize="14px"
+            bottomTag={getMonsterTypeTag(card.originalData)}
           />
         );
       case "event":
@@ -168,9 +166,6 @@ export default function CardsPage() {
         return null;
     }
   };
-
-  // Get unique themes from the deck
-  const uniqueThemes = Array.from(new Set(allCards.map((card) => card.theme))).sort();
 
   return (
     <div
@@ -244,29 +239,6 @@ export default function CardsPage() {
             <option value={1}>Tier 1</option>
             <option value={2}>Tier 2</option>
             <option value={3}>Tier 3</option>
-          </select>
-        </div>
-
-        {/* Theme Filter */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", color: "#333" }}>Theme:</label>
-          <select
-            value={themeFilter}
-            onChange={(e) => setThemeFilter(e.target.value)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "2px solid #ddd",
-              fontSize: "14px",
-              backgroundColor: "white",
-            }}
-          >
-            <option value="all">All Themes</option>
-            {uniqueThemes.map((theme) => (
-              <option key={theme} value={theme}>
-                {theme.charAt(0).toUpperCase() + theme.slice(1)}
-              </option>
-            ))}
           </select>
         </div>
 
@@ -396,17 +368,6 @@ export default function CardsPage() {
               <div>Tier 1: {allCards.filter((c) => c.tier === 1).length} cards</div>
               <div>Tier 2: {allCards.filter((c) => c.tier === 2).length} cards</div>
               <div>Tier 3: {allCards.filter((c) => c.tier === 3).length} cards</div>
-            </div>
-          </div>
-          <div>
-            <h3 style={{ color: "#555", fontSize: "16px" }}>By Theme</h3>
-            <div style={{ fontSize: "14px", color: "#666" }}>
-              {uniqueThemes.map((theme) => (
-                <div key={theme}>
-                  {theme.charAt(0).toUpperCase() + theme.slice(1)}: {allCards.filter((c) => c.theme === theme).length}{" "}
-                  cards
-                </div>
-              ))}
             </div>
           </div>
           <div>

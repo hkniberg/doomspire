@@ -16,34 +16,23 @@ _This section covers everything you need to play the first round. Player-to-play
 
 ---
 
-## Starting Resources
-
-Each player starts with:
-
-- 2 Gold
-- One home tile in the corner of the board (providing 1 food and 1 wood when harvested)
-
----
-
 ## Victory Conditions
 
-The first player to impress the dragon 3 times wins the game and becomes **King of Doomspire**. This is tracked on the Dragon Impression track (alongside the Fame and Might tracks).
+The first player to impress the dragon twice wins the game and becomes **King of Doomspire**. Mark each impression in the dragon impression slot on your island board.
 
 The remaining players compete for the titles of **Hand of the King** (most resource tiles), **Master of Coin** (most gold), and **Court Jester** (whoever is left).
 
 Impress the dragon by reaching **Doomspire** (hidden in the center of the board) and fulfilling any of these conditions:
 
-- **Fame**: Have 15+ Fame. The dragon is impressed by your legendary reputation.
+- **Fame**: Have 17+ Fame. The dragon is impressed by your legendary reputation.
 - **Economy**: Own 4+ starred resource tiles. The dragon is impressed by your territorial dominance.
 - **Gold**: Have 12+ Gold. The dragon is impressed by your wealth.
 - **Combat**: Defeat the dragon in battle. The dragon is impressed by your might.
-- **Rings**: During your adventures you may find rings that are very impressive to the dragon.
+- **Treasures**: During your adventures you may find rings and other treasures that are very impressive to the dragon.
 
 Failure to impress means becoming the dragon's next meal.
 
-A player's knight can stay at Doomspire and keep impressing the dragon each round, as long as they continue to meet a qualifying condition (or until some other player's knight kicks them out)
-
-When Doomspire is first revealed, place 3 treasure stacks on the tile (4 random resources each). Each time any player impresses the dragon (while treasure remains), they take one treasure stack as reward.
+See the Doomspire section for details.
 
 ---
 
@@ -51,10 +40,10 @@ When Doomspire is first revealed, place 3 treasure stacks on the tile (4 random 
 
 The board is an 8x8 grid of land tiles surrounded by 4 L-shaped ocean tiles in the corners. Knights move around on land tiles, while boats move around on ocean tiles and can transport knights between coastal land tiles.
 
-The board has four biomes: Ocean, Plains, Hills, and Mountains, with increased level of risk & reward as you move towards the mountains in the center.
+The board is divided into four regions: Ocean, Flatlands, Hills, and Mountains, with increased level of risk & reward as you move towards the mountains in the center.
 
 - **Ocean zones**: The surrounding ocean is divided into 4 ocean zones - northwest, northeast, southwest, southeast.
-- **Plains**: These are the outer 2 layers of the 8x8 grid. The outermost tiles are coastal tiles, allowing boat transport.
+- **Flatlands**: These are the outer 2 layers of the 8x8 grid. The outermost tiles are coastal tiles, allowing boat transport.
 - **Hills**: This is the second innermost layer of tiles, a ring of tiles surrounding the center.
 - **Mountains**: These are the center 4 tiles, containing dragonspire and 3 adventure tiles with high risk/reward.
 
@@ -62,21 +51,60 @@ All hill and mountain tiles start unexplored (face down).
 
 ---
 
-## Turn Structure
+## Game Setup
 
-Each round has 3 phases:
+_For the full component list, see `components.md`._
 
-1. **Roll Phase** (Parallel): Move the first player token clockwise, then all players roll dice simultaneously.
-2. **Move Phase** (Sequential): One player at a time, use the pre-rolled dice for movement and tile actions
-3. **Harvest Phase** (Parallel): Use remaining dice to harvest resources, use buildings, construct new buildings or boats, and recruit new knights.
+**The island:**
+
+1. Shuffle the 4 home tiles and place one randomly in each corner, face up.
+2. Shuffle all flatland tiles and place them randomly, face up, filling the outer two layers of the board. Each home tile ends up touched by 3 flatland tiles in a V shape.
+3. Shuffle all hill tiles and place them face down in the ring around the center.
+4. Shuffle the 4 mountain tiles and place them face down in the center 2x2 square.
+5. Place a wolf on each den and each starred resource tile in the flatlands.
+
+**The decks & tokens:**
+
+6. Find the fate card **Settling**. Shuffle the rest of the fate deck and place it face down, with Settling face up on top.
+7. Sort the adventure cards into three piles by tier (1, 2, 3) and shuffle each pile separately.
+8. Place the trader deck face up. It is not shuffled, and anyone may look through it during the game.
+9. Place the resource tokens in organized piles within reach of all players.
+
+**Each player:**
+
+10. Takes an island board and places 2 gold on it. The island board is where you keep your resources, buildings, and mark if you've impressed the dragon.
+11. Places their castle on their island board and on their home tile.
+12. Places their first village and their knight on their home tile. (The home tile provides 1 food and 1 wood when harvested.)
+13. Places a boat in the ocean zone next to their home tile.
+14. Puts a marker at 0 on the fame and might tracks, placed next to the board.
+15. If playing with the Knight cards add-on: receives two knight cards and picks one.
+
+Finally, randomly pick a starting player and give them the first player token. Setup is complete - you are ready to begin Round 1!
 
 ---
 
-## Phase 1: Roll phase
+## Turn Structure
 
-Move the first player token to the next player clockwise.
+Each round has 4 phases:
 
-Then everyone does this simultaneously:
+1. **Fate Phase** (Together): Move the first player token clockwise, then draw and resolve the round's fate card.
+2. **Roll Phase** (Parallel): All players roll dice simultaneously.
+3. **Move Phase** (Sequential): One player at a time, use the pre-rolled dice for movement and tile actions
+4. **Harvest Phase** (Parallel): Use remaining dice to harvest resources, use buildings, construct new buildings or boats, and recruit new knights.
+
+---
+
+## Phase 1: Fate phase
+
+**Move the first player token** to the next player clockwise.
+
+**Draw a fate card**: Flip the top card of the fate deck and resolve it. Votes are resolved now, before any dice are rolled. The card's effects apply immediately and last for this round only. See Fate Cards section.
+
+---
+
+## Phase 2: Roll phase
+
+Everyone does this simultaneously:
 
 - **Decide how many dice to roll**: You get 1 die for your castle, and 1 die for each knight.
   - For each die after the first two, you must pay 2 food in **dice tax**. If you can't, you don't get to roll those dice.
@@ -84,7 +112,7 @@ Then everyone does this simultaneously:
 
 ---
 
-## Phase 2: Movement phase
+## Phase 3: Movement phase
 
 Movement phase is done one player at a time, starting from the player with the first player token.
 
@@ -102,13 +130,14 @@ Use a dice to move one knight up to that number of steps, and potentially intera
 **Interacting with other knights**:
 
 - Cannot enter the same tile as another one of your knights.
-- (round 1): Cannot enter the same tile as an opposing knight.
-- (round 2+): If you stop in the same tile as an opposing knight, you must fight. You may pass through an opposing knight, but the opposing player may force you to stop and fight
+- If you stop in the same tile as an opposing knight, you must fight (see Part 2). You may pass through an opposing knight, but the opposing player may force you to stop and fight.
 - Exception: Special tiles can contain multiple knights, and no combat happens. See Special Tiles.
 
-**Multiple movements**:
+**Sprinting (combining dice)**:
 
-- You can use another action die to move the same knight again, as long as the knight has not interacted with a tile. For example if the knight entered a resource tile without claiming it, or entered an adventure tile with no adventure tokens left.
+- You may combine two or more action dice into one longer movement for a single knight. The step values add up: combining a 1 and a 2 lets the knight move up to 3 steps, exactly as if you had used a single die showing 3.
+- You can also spend dice on the same knight one at a time: move it, and as long as it has not interacted with a tile, move it again with another die.
+- Normal movement rules still apply while sprinting: you must stop when entering an unexplored tile or a tile with a monster, and once the knight interacts with a tile it cannot use any more action dice this turn.
 
 **Tile interaction rules**:
 
@@ -151,7 +180,7 @@ When a knight enters a tile, Tile Interaction may happen, automatically and/or v
 
 - **Explore**: If you enter an unexplored tile you will explore it first and then interact with it. Flip it to reveal the contents.
   - Gain 1 fame for exploring.
-  - If it is a bear's den or a resource tile, add a Bear to it (Tier 2 resource tiles are always guarded by a bear).
+  - If it is a den or a starred resource tile, add a monster: a wolf in the flatlands, a bear in the hills.
 - **Combat**: If a monster is on the tile, combat will happen. See Combat section below.
 - **Impress the dragon**: If you enter Doomspire, you must impress the dragon or be eaten. See Doomspire section below.
 - **Adventure**: If you enter an adventure or oasis tile that has remaining adventure tokens, you must draw a card. See Adventure Cards section below.
@@ -162,7 +191,7 @@ When a knight enters a tile, Tile Interaction may happen, automatically and/or v
 After the automatic interactions are done, the player may perform voluntary interactions.
 
 - Use a **special location** - trader/mercenary/temple. See Special Locations section.
-- **Claim a resource tile** - place your flag on an unclaimed resource tile. You will now be able to harvest resources from that tile in the harvest phase. See Resource System section.
+- **Claim a resource tile** - place a village on an unclaimed resource tile. You will now be able to harvest resources from that tile in the harvest phase. See Resource System section.
 - Pick up or drop **items** in a tile
 
 > Example:
@@ -181,7 +210,7 @@ After the automatic interactions are done, the player may perform voluntary inte
 
 ---
 
-## Phase 3: Harvest phase
+## Phase 4: Harvest phase
 
 When all players are done with their movement phase, the harvest phase begins. All players can harvest (if they have any remaining action dice), use any castle buildings they already have, and buy a new building/boat/champion if they can afford it.
 
@@ -214,6 +243,15 @@ Build happens last, after using buildings. So you can't use a building the same 
 
 ---
 
+## Fate cards
+
+One fate card is drawn each round during the fate phase, before dice are rolled. It applies immediately and lasts for this round only.
+
+- Some fate cards trigger a **council vote**: each player votes YES or NO (or for a target player). Each vote is weighted by the voter's fame. A tie means no effect.
+- The first fate card of the game is predecided (placed during setup): **Settling** - no deliberate combat this round. Knights cannot move into a tile with another knight or a creature on it. Monsters drawn from adventure cards are still fought as normal.
+
+---
+
 ## Adventure cards
 
 An adventure card is drawn when a knight enters an unoccupied adventure tile or oasis tile that has remaining adventure tokens.
@@ -222,19 +260,12 @@ An adventure card is drawn when a knight enters an unoccupied adventure tile or 
 
 Each adventure tile has 1 to 3 question marks, indicating the tier of the adventure card to draw. Higher tier means higher risk/reward. As you move towards the mountains in the center of the board, the tier of the adventure cards increases.
 
-### Adventure card themes
-
-Each adventure card has a theme (indicated by the art on the backside), which gives you a hint about which kinds of monsters and resources may show up:
-
-- **Beast adventure cards**: More likely to provide food resources, and monsters are more likely to be beasts (relevant to some items)
-- **Cave adventure cards**: More likely to provide ore resources and cave-dwelling monsters.
-- **Grove adventure cards**: More likely to provide wood resources and forest creatures.
 
 ### Adventure card types
 
 When you draw an adventure card, you may get a:
 
-- **Monster card**: Fight the monster or flee, earn fame and resources if you win. See Combat section.
+- **Monster card**: Fight the monster or flee, earn fame and resources if you win. Each monster has a type (such as Beast, Troll, or Humanoid) shown as a tag on the card - some items and abilities refer to these types. See Combat section.
 - **Event card**: Could lead to earning items, gaining fame, moving yourself or other players, and all kinds of things depending on the event.
 - **Treasure card**: Often contain items that your knight can carry. See Items section.
 - **Encounter card**: Often contain followers that will join your knight. See Followers section.
@@ -262,7 +293,8 @@ Roll 1D3:
 
 - Roll 1D3
 - Add your Might
-- Add +2 for each supporting knight or warship within 1 tile of the combat tile, including diagonals. Even from other players, if they choose to support you.
+- Add +2 if you have a supporting knight or warship within 1 tile of the combat tile, including diagonals. Other players with units in range may also support you, if they choose to.
+  - Each player can provide at most one support (+2) per battle, no matter how many knights or warships they have in range.
 - Decide whether to use bonuses from items or followers.
 - The resulting attack value must be greater than or equal to the monster's Might to win.
 
@@ -281,6 +313,7 @@ If you have no resource to lose, then lose 1 fame instead. If you don't have any
 
 - In combat, support can be received from neighbouring knights/warships, even from other players who choose to support you.
 - Support from other players is announced after the combat dice roll. This opens up for collaboration, diplomacy, and treachery ("Hey, you said you would support me!". "Sorry, I lied.")
+- Remember: max one support (+2) per player per battle.
 - Monsters cannot receive support.
 
 > Example: Calculating the odds of winning
@@ -295,11 +328,11 @@ If you have no resource to lose, then lose 1 fame instead. If you don't have any
 >
 > Alice has 1 might, 2 knights, and the warship upgrade. She wants to attack a bear with 5 might. The bear is in a coastal tile.
 >
-> - She moves knight 1 to a neighbouring tile, and uses her boat to transport knight 2 into the tile with the bear. Combat ensues, with support from both knight 1 and the warship.
+> - She moves knight 1 to a neighbouring tile, and uses her boat to transport knight 2 into the tile with the bear. Combat ensues. Both knight 1 and the warship are in range, but a player can provide at most one support, so Alice gets +2.
 > - Alice rolls 1D3 and gets a 2.
 > - +1 might = 3.
-> - +4 supporting units (2 units × +2 each) = 7.
-> - 7 is >= 5 (the bear's might), so Alice wins.
+> - +2 support = 5.
+> - 5 is >= 5 (the bear's might), so Alice wins - barely. If Bob had also had a knight nearby, she could have asked him for support (+2 more).
 
 ---
 
@@ -315,17 +348,19 @@ When doomspire is revealed, the dragon's treasure hoard is also revealed.
 
 When you enter or interact with the doomspire tile, you attempt to impress the dragon.
 
-- If you have 15+ fame, 12+ gold, or own 4+ starred resource tiles, you automatically impress the dragon.
+- If you have 17+ fame, 12+ gold, or own 4+ starred resource tiles, you automatically impress the dragon.
 - If not, you must fight the dragon - fleeing is impossible. You can't kill the dragon, but defeating it in combat will impress it.
 - A player can impress the dragon at most once per round.
 - A knight can stay at Doomspire, but needs to impress the dragon each round or be eaten.
-- If an opposing knight is at Doomspire when you enter, you must fight them first (normal PVP combat rules apply). If you win, you then face the dragon and must impress it. If you lose, you go home without facing the dragon, and lose resources to the other player. See 'Resolving knight to knight combat' section.
+- If an opposing knight is at Doomspire when you enter, you must fight them first (normal PVP combat rules apply). If you lose, you go home without facing the dragon, and lose resources to the other player. See 'Resolving knight to knight combat' section. If you win, choose one:
+  - Face the dragon as usual, and impress it or be eaten.
+  - Accept a ride home: the dragon is so happy that you got rid of that pesky knight that it offers to fly you back to your home tile. No impression attempt, no risk.
 
 ### Result of impressing the dragon
 
 - If there is a treasure stack remaining, take one as reward.
-- Gain +1 on your Dragon Impression track.
-- If you have reached 3 impressions, you win the game immediately. See Final Ranking section.
+- Mark one dragon impression on your island board.
+- If you have reached 2 impressions, you win the game immediately. See Final Ranking section.
 
 ### Result of failing to impress the dragon
 
@@ -337,11 +372,11 @@ If you lose your last knight, you can choose whether to stay in the game and sav
 
 ## Final Ranking
 
-When a player reaches 3 dragon impressions, the game ends and the final ranking is established:
+When a player reaches 2 dragon impressions, the game ends and the final ranking is established:
 
 **Final ranking**:
 
-- **King of Doomspire**: The player who reached 3 dragon impressions.
+- **King of Doomspire**: The player who reached 2 dragon impressions.
 - **Hand of the King**: Player with the most resource tiles claimed. Tiebreaker: most starred resource tiles. If still tied, King decides.
 - **Master of Coin**: Player with the most gold. Tiebreaker: total resources (gold + food + wood + ore). If still tied, King decides.
 - **Court Jester**: The remaining player. That player must clean up the mess (but may beg for help).
@@ -366,7 +401,7 @@ A knight can carry up to 2 items by default, typically weapons or tools that giv
 Items can be obtained by:
 
 - Buying from the trader
-- Attacking another knight and stealing their item (from round 2)
+- Attacking another knight and stealing their item (see Part 2)
 - Adventure cards
 - Picking up items left by other players
 
@@ -408,7 +443,7 @@ The game has 4 types of resources: **gold**, **food**, **wood**, and **ore**. Re
 - Claim resource tiles and use action dice to harvest from them
 - Defeat monsters
 - Some adventure cards give resources
-- (round 2+) Stealing from other players or blockading their resource tiles
+- Stealing from other players or blockading their resource tiles (see Part 2)
 
 Owning resource tiles let you build a sustainable economy. They can also be used to impress the dragon economically (own 4 starred resource tiles and visit the dragon).
 
@@ -416,12 +451,12 @@ Owning resource tiles let you build a sustainable economy. They can also be used
 
 - **Home tile**: Provides 1 wood and 1 food. Opposing knights cannot enter this tile.
 - **Normal resource tiles**: Provide 1 resource.
-- **Starred resource tiles**: Resource tiles that provide more than one resource are considered starred resource tiles. All resource tiles in Tier 2 region are starred, and some in Tier 1. The dragon will be impressed if you own 4+ starred resource tiles.
+- **Starred resource tiles**: Resource tiles that provide more than one resource are considered starred resource tiles. All resource tiles in the hills are starred, and some in the flatlands. The dragon will be impressed if you own 4+ starred resource tiles.
 
 **Claiming a resource tile**:
 
-- To claim a resource tile, move a knight to an unclaimed resource tile and place a flag on it. This is now considered your tile.
-- In Round 1, all resource interactions are peaceful - no disputes over territory yet!
+- To claim a resource tile, move a knight to an unclaimed resource tile and place a village on it. This is now considered your tile.
+- Disputes over claimed territory (blockading and taking over tiles) are covered in Part 2.
 
 ---
 
@@ -465,12 +500,12 @@ Owning resource tiles let you build a sustainable economy. They can also be used
 These special locations provide additional interactions.
 
 - **Temple**:
-  - Sacrifice 2 Fame to gain 1 Might (once per turn)
+  - Sacrifice 2 Fame to gain 1 Might (once per round)
 - **Trader**:
   - Trade resources at a 2:1 rate. You can convert any resource into any other resource. For example trade 3 food + 1 wood for 2 ore.
   - Buy items for gold. The trader deck is open for anyone to look at during the game, and contains useful items to aid your journey. Note that items can run out of stock.
 - **Mercenary Camp**:
-  - Pay 3 Gold to gain 1 Might (once per turn)
+  - Pay 3 Gold to gain 1 Might (once per round)
 
 A knight can stay in a special tile in order to use it repeatedly, but they can only use it once per round, and they still need to use an action die to stand still and interact with the tile.
 
@@ -482,7 +517,7 @@ Special tiles are non-combat zones, so multiple knights can be there and battle 
 
 Congratulations! You now know everything needed to play the first round of Lords of Doomspire.
 
-After completing Round 1, players will have claimed files, fought monsters, and/or harvested resources.
+After completing Round 1, players will have claimed tiles, fought monsters, and/or harvested resources.
 
 At the beginning of Round 2, we need to introduce some additional mechanics:
 
@@ -495,7 +530,7 @@ At the beginning of Round 2, we need to introduce some additional mechanics:
 
 # PART 2
 
-Read this during the dice roll phase of round 2.
+Read this at the start of round 2.
 
 ---
 
@@ -519,7 +554,7 @@ Roll 1D3:
 ### Resolving knight to knight combat
 
 - Both players roll 2D3
-- Each knight applies their own combat bonuses: Might + supporting units + item/follower effects. Same as with monster combat.
+- Each knight applies their own combat bonuses: Might + support + item/follower effects. Same as with monster combat (max one support per player per battle).
 - Highest value wins. Ties are rerolled until someone wins.
 - The winner gains 1 fame and stays in the tile.
 - The losing knight goes home.
@@ -554,8 +589,8 @@ The dragon has might 8.
 
 - Pick another player to represent the dragon - ideally your biggest rival!
 - Both you and the dragon roll 2D3
-- Apply combat bonuses: Might + supporting units + item/follower effects.
-- Other players may choose to support you or the dragon.
+- Apply combat bonuses: Might + support + item/follower effects.
+- Other players may choose to support you or the dragon (max one support per player).
 - Highest value wins. Ties are rerolled until someone wins.
 Losing means getting eaten by the dragon.
 
@@ -578,8 +613,8 @@ Players can dispute control over resource tiles.
 **Taking over a resource tile** (costs fame or gold):
 
 - You can take over another player's unprotected resource tile in two ways:
-  - **Conquer** (2 fame): Sacrifice 2 fame to seize the tile by force. Replace the other player's flag with your own.
-  - **Bribe** (2 gold): Pay 2 gold to take over the tile through corruption. Replace the other player's flag with your own.
+  - **Conquer** (2 fame): Sacrifice 2 fame to seize the tile by force. Replace the other player's village with your own.
+  - **Bribe** (2 gold): Pay 2 gold to take over the tile through corruption. Replace the other player's village with your own.
 - Can also be done after combat.
 
 > Blockade example:
@@ -595,3 +630,33 @@ Players can dispute control over resource tiles.
 - Players can freely trade resources (food, wood, ore, gold) with other players anytime
 - Items cannot be directly traded (only indirectly via drop/pickup)
 - Followers cannot be traded
+
+---
+
+# OPTIONAL ADD-ONS
+
+These variants add variety for experienced players. Leave them out to keep the base game simple.
+
+## Knight cards
+
+Instead of identical knights, each knight is a unique character with a special ability.
+
+- When you get a knight (including your starting knight during setup), draw 2 knight cards and pick one. Place it in front of you.
+- The knight card stays with that knight for the whole game. If the knight is eaten by the dragon, the card is removed from the game.
+- Some knight abilities refer to the board's regions (flatlands, hills, mountains).
+
+## Exploration mode
+
+The whole island is uncharted.
+
+- All land tiles start unexplored (face down), except the home tile in each corner.
+- Since exploring earns much more fame in this mode, the Fame condition for impressing the dragon is raised by 3 (17 becomes 20).
+
+---
+
+# RULE CLARIFICATIONS
+
+Weird edge cases, settled:
+
+- **Porcupine / Hedgehog**: "higher combat total" means the opponent's full total - dice + might + support + item and follower bonuses - excluding the shield's own bonus. Evaluate after dice are rolled and support is announced.
+- **Porcupine vs Hedgehog**: if both knights in a battle carry an underdog shield (Porcupine or Hedgehog), the shields bristle at each other and cancel out - neither grants its bonus.

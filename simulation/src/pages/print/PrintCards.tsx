@@ -9,6 +9,7 @@ import {
   formatTraderContent,
   formatTreasureContent,
   getBorderColor,
+  getMonsterTypeTag,
 } from "../../components/cards/Card";
 import { ENCOUNTERS } from "../../content/encounterCards";
 import { EVENT_CARDS } from "../../content/eventCards";
@@ -106,14 +107,13 @@ export default function PrintCards() {
     };
 
     if (isBackside) {
-      // Use "trader" biome for trader cards, otherwise use the card's biome
-      const biome = card.type === "trader" ? "trader" : (card as Card).theme;
+      const backside = card.type === "trader" ? "trader" : "adventure";
       const backsideLabel = card.type === "trader" ? "Trader" : "ADVENTURE";
       return (
         <CardComponent
           {...commonProps}
           showBackside={true}
-          backsideImageUrl={`/cardBacksides/${biome}.png`}
+          backsideImageUrl={`/cardBacksides/${backside}.png`}
           backsideLabel={backsideLabel}
           printMode={true}
         />
@@ -128,6 +128,7 @@ export default function PrintCards() {
             imageUrl={`/monsters/${card.originalData.id}.png`}
             content={formatMonsterContent(card.originalData)}
             contentFontSize="14px"
+            bottomTag={getMonsterTypeTag(card.originalData)}
             printMode={true}
           />
         );

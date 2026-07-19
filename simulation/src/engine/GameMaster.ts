@@ -516,7 +516,7 @@ export class GameMaster {
     );
     if (doomspireResult.entered) {
       if (doomspireResult.alternativeVictory) {
-        // Check if this is a final impression (3rd time) that ends the game
+        // Check if this is a final impression that ends the game
         if (doomspireResult.alternativeVictory.type.includes("Final Impression")) {
           this.endGameWithRanking(doomspireResult.alternativeVictory.playerName);
           return;
@@ -526,7 +526,7 @@ export class GameMaster {
         }
       }
       if (doomspireResult.dragonImpressed) {
-        // Dragon was impressed but game continues (1st or 2nd impression)
+        // Dragon was impressed but game continues (not the final impression yet)
         logFn("system", `Dragon impressed ${doomspireResult.dragonImpressed.impressionCount} time(s). Game continues.`);
       }
       if (doomspireResult.dragonCombat) {

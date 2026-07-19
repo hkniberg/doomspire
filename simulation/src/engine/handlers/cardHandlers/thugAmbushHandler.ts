@@ -72,7 +72,7 @@ export async function handleThugAmbush(
         icon: banditCard.icon,
         might: banditCard.might,
         fame: banditCard.fame,
-        isBeast: banditCard.isBeast,
+        monsterType: banditCard.monsterType,
         resources: {
           food: banditCard.resources.food || 0,
           wood: banditCard.resources.wood || 0,

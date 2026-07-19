@@ -18,9 +18,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: join(__dirname, ".env") });
 
-const OPENAI_MODEL = "gpt-image-1";
+const OPENAI_MODEL = "gpt-image-2";
 const SIZE = "1024x1024"; // Square format for encounter cards
-const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-0";
+const DEFAULT_CLAUDE_MODEL = "claude-sonnet-5";
 const MAX_ENCOUNTERS = 50; // For testing purposes
 
 class EncounterImageGenerator {

@@ -378,7 +378,7 @@ export default function PrintPage() {
               marginBottom: "1rem",
             }}
           >
-            Print Castle Board
+            Print Island Board
           </Link>
 
           <Link

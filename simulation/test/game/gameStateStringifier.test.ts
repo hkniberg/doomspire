@@ -25,7 +25,7 @@ describe("GameStateStringifier", () => {
   - Has Broken Shield (broken-shield) - Choose one:
 Gain \`+1 ore\`, **OR**
 Spend \`2 ore\` to gain \`+1 might\`
-  - Has Rusty sword (rusty-sword) - Gain \`+2 might\`. This **item breaks** after *one fight*.
+  - Has Rusty sword (rusty-sword) - Gain \`+2 might\` for this battle. This **item breaks** after *one use*.
 - champion2 at (3,5)
 - champion1 at (2,5)
 - boat1 at (sw)
@@ -188,7 +188,7 @@ Tile (4,3)
 - Unexplored tier 1 tile
 
 Tile (4,4)
-- Doomspire Dragon (might 13) - Impressed 0/3 times
+- Doomspire Dragon (might 8) - Impressed 0/2 times
 
 Tile (4,5)
 - Unexplored tier 1 tile
@@ -379,7 +379,7 @@ function createSampleGameState(): GameState {
       might: 6,
       fame: 1,
       resources: { food: 2, wood: 0, ore: 0, gold: 0 },
-      isBeast: true,
+      monsterType: "beast",
     },
   });
 

@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { useState, useCallback, useEffect } from "react";
-import { FATE_CARDS, FateCard, FateCardType } from "../content/fateCards";
+import { FATE_CARDS, FateCard, FateCardType, FIRST_FATE_CARD_ID } from "../content/fateCards";
 
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
@@ -9,6 +9,13 @@ function shuffleArray<T>(array: T[]): T[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
+}
+
+// Shuffle the deck, but keep the predecided first card (Settling) on top, as in the physical setup
+function buildDeck(): FateCard[] {
+  const firstCard = FATE_CARDS.find((card) => card.id === FIRST_FATE_CARD_ID);
+  const rest = shuffleArray(FATE_CARDS.filter((card) => card.id !== FIRST_FATE_CARD_ID));
+  return firstCard ? [firstCard, ...rest] : rest;
 }
 
 function renderSimpleMarkdown(text: string): React.ReactNode[] {
@@ -170,7 +177,7 @@ export default function FateCardSimulator() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setDeck(shuffleArray(FATE_CARDS));
+    setDeck(buildDeck());
     setMounted(true);
   }, []);
 
@@ -186,7 +193,7 @@ export default function FateCardSimulator() {
   }, [topCard, activeCard]);
 
   const reset = useCallback(() => {
-    setDeck(shuffleArray(FATE_CARDS));
+    setDeck(buildDeck());
     setActiveCard(null);
     setDiscardPile([]);
   }, []);

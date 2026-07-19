@@ -2,7 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { CarriableItem, Monster } from "../lib/types";
 import { getTierSolidColor } from "../lib/uiConstants";
-import { CardComponent, formatMonsterContent, formatTraderContent } from "./cards/Card";
+import { CardComponent, formatMonsterContent, formatTraderContent, getMonsterTypeTag } from "./cards/Card";
 
 interface TileCardModalProps {
   isOpen: boolean;
@@ -96,6 +96,7 @@ export const TileCardModal: React.FC<TileCardModalProps> = ({
                 title={`Monster: ${monster.name} (Might: ${monster.might})`}
                 content={formatMonsterContent(monster)}
                 contentFontSize="14px"
+                bottomTag={getMonsterTypeTag(monster)}
               />
             </div>
           )}

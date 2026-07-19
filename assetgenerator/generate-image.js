@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: join(__dirname, ".env") });
 
-const OPENAI_MODEL = "gpt-image-1";
+const OPENAI_MODEL = "gpt-image-2";
 const OPENAI_DEFAULT_SIZE = "1024x1024";
 
 class ImageGenerator {
@@ -41,9 +41,8 @@ class ImageGenerator {
         model: OPENAI_MODEL,
         prompt: prompt,
         size: OPENAI_DEFAULT_SIZE,
-        quality: "standard", // Use standard for faster generation
+        quality: "medium", // low = fast drafts, high = final assets
         n: 1,
-        response_format: "b64_json",
       });
 
       const imageData = response.data[0];

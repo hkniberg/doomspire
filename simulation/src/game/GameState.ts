@@ -361,8 +361,9 @@ export class GameState {
       }
     }
 
-    // Apply the combat support bonus (each supporting unit gives +2 might)
-    return supportCount * GameSettings.COMBAT_SUPPORT_BONUS;
+    // A given player can provide at most one support per battle,
+    // no matter how many knights or warships they have in range
+    return Math.min(supportCount, 1) * GameSettings.COMBAT_SUPPORT_BONUS;
   }
 
   /**

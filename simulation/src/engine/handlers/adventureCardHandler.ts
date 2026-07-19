@@ -65,7 +65,7 @@ export async function handleMonsterCard(
     icon: monsterCard.icon,
     might: monsterCard.might,
     fame: monsterCard.fame,
-    isBeast: monsterCard.isBeast,
+    monsterType: monsterCard.monsterType,
     resources: {
       food: monsterCard.resources.food || 0,
       wood: monsterCard.resources.wood || 0,

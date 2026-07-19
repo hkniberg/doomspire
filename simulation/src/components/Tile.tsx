@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { GameState } from "../game/GameState";
 import type { Champion, ResourceType, Tile } from "../lib/types";
 import { getTierSolidColor } from "../lib/uiConstants";
-import { CardComponent, formatMonsterContent, formatTraderContent } from "./cards/Card";
+import { CardComponent, formatMonsterContent, formatTraderContent, getMonsterTypeTag } from "./cards/Card";
 import { ChampionComponent } from "./Champion";
 import { ClaimFlag } from "./ClaimFlag";
 import { ResourceIcon } from "./ResourceIcon";
@@ -542,6 +542,7 @@ ${effectiveTile.claimedBy ? `Claimed by Player ${effectiveTile.claimedBy}${isBlo
             title={`Monster: ${effectiveTile.monster.name} (Might: ${effectiveTile.monster.might})`}
             content={formatMonsterContent(effectiveTile.monster)}
             contentFontSize="14px"
+            bottomTag={getMonsterTypeTag(effectiveTile.monster)}
           />
         </div>
       )}

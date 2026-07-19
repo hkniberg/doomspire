@@ -6,6 +6,7 @@ import {
   formatTraderContent,
   formatTreasureContent,
   getBorderColor,
+  getMonsterTypeTag,
 } from "../../components/cards/Card";
 import { MONSTER_CARDS } from "../../content/monsterCards";
 import { TRADER_ITEMS } from "../../content/traderItems";
@@ -104,6 +105,7 @@ export default function PrintCardsCompact() {
             imageUrl={`/monsters/${card.originalData.id}.png`}
             content={formatMonsterContent(card.originalData)}
             contentFontSize="8px"
+            bottomTag={getMonsterTypeTag(card.originalData)}
           />
         );
       case "treasure":

@@ -14,6 +14,7 @@ import {
   formatTraderContent,
   formatTreasureContent,
   getBorderColor,
+  getMonsterTypeTag,
 } from "./cards/Card";
 
 interface CardDecksProps {
@@ -90,6 +91,7 @@ export const CardDecks = ({ gameSession }: CardDecksProps) => {
         if (originalData) {
           imageUrl = `/monsters/${originalData.id}.png`;
           content = formatMonsterContent(originalData);
+          bottomTag = getMonsterTypeTag(originalData);
         }
         break;
       case "event":
@@ -147,7 +149,6 @@ export const CardDecks = ({ gameSession }: CardDecksProps) => {
     const gameDecks = gameSession.getGameDecks();
     const topCard = gameDecks.peekTopCard(tier);
     const deckSize = gameDecks.getDeckSize(tier);
-    const theme = topCard?.theme || "beast"; // Default theme fallback
 
     // Always show card back
     return (
@@ -170,7 +171,7 @@ export const CardDecks = ({ gameSession }: CardDecksProps) => {
         <CardComponent
           showBackside={true}
           tier={tier}
-          backsideImageUrl={`/cardBacksides/${theme}.png`}
+          backsideImageUrl="/cardBacksides/adventure.png"
           borderColor="#666666"
           title={`Tier ${tier} - ${deckSize} cards remaining`}
         />

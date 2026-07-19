@@ -5,7 +5,7 @@ export default function VictoryCard() {
   const victoryTitles = [
     { place: "1st", title: "King of Doomspire", color: "#FFD700" },
     { place: "2nd", title: "Hand of the King", color: "#C0C0C0" },
-    { place: "3rd", title: "Head of Forest-Observing", color: "#CD7F32" },
+    { place: "3rd", title: "Master of Coin", color: "#CD7F32" },
     { place: "4th", title: "Court Jester", color: "#8B4513" },
   ];
 

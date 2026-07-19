@@ -16,6 +16,12 @@ export const formatMonsterContent = (monster: any): string => {
 **Loot:** ${formatResources(monster.resources)}`;
 };
 
+// Monster type (beast, humanoid, troll, ...) shown as a tag on the card
+export const getMonsterTypeTag = (monster: any): string | undefined => {
+  if (!monster?.monsterType) return undefined;
+  return monster.monsterType.charAt(0).toUpperCase() + monster.monsterType.slice(1);
+};
+
 export const formatEncounterContent = (encounter: any): string => {
   return encounter.description;
 };

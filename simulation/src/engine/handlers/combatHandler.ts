@@ -34,13 +34,31 @@ function removeBrokenItems(champion: Champion | undefined, itemsToRemove: Carria
 }
 
 /**
- * Identify available combat items and ask player which ones to use after seeing dice roll
+ * Whether a champion carries an "underdog shield" (Porcupine or Hedgehog).
+ * When both sides of a PVP battle carry one, the shields cancel out and neither applies.
+ */
+export function hasUnderdogShield(champion: Champion | undefined): boolean {
+  if (!champion) return false;
+  return champion.items.some(
+    (item) => item.treasureCard?.id === "porcupine" || item.traderItem?.id === "the-hedgehog",
+  );
+}
+
+/**
+ * Identify available combat items and ask player which ones to use after seeing dice roll.
+ *
+ * opponentTotal / playerTotalBeforeItems are the combat totals known so far (might + dice + support),
+ * used by the underdog shields (Porcupine/Hedgehog) which compare full combat totals,
+ * excluding the shield's own bonus.
  */
 async function handlePostDiceItemDecisions(
   champion: Champion | undefined,
   player: Player,
   diceRoll: number | string,
-  opponentMight?: number,
+  opponentTotal?: number,
+  playerTotalBeforeItems?: number,
+  isPvp?: boolean,
+  underdogShieldsCancel?: boolean,
   isDragonFight?: boolean,
   playerAgent?: PlayerAgent,
   gameState?: GameState,
@@ -74,11 +92,30 @@ async function handlePostDiceItemDecisions(
   }
 
   // Handle beneficial items with no downside (use automatically)
+  const opponentHasHigherTotal =
+    opponentTotal !== undefined &&
+    playerTotalBeforeItems !== undefined &&
+    opponentTotal > playerTotalBeforeItems + mightBonus;
+
   for (const item of champion.items) {
     // Porcupine shield (conditional, but no downside - use automatically when applicable)
-    if (item.treasureCard?.id === "porcupine" && opponentMight !== undefined && opponentMight > player.might) {
-      mightBonus += 2;
-      logFn("combat", `Porcupine Shield activated automatically: +2 might (opponent has more base might)`);
+    if (item.treasureCard?.id === "porcupine") {
+      if (underdogShieldsCancel) {
+        logFn("combat", `Porcupine Shield cancelled: both knights carry an underdog shield`);
+      } else if (opponentHasHigherTotal) {
+        mightBonus += 2;
+        logFn("combat", `Porcupine Shield activated automatically: +2 might (opponent has a higher combat total)`);
+      }
+    }
+
+    // The Hedgehog (PVP only, conditional, no downside - use automatically when applicable)
+    if (item.traderItem?.id === "the-hedgehog" && isPvp) {
+      if (underdogShieldsCancel) {
+        logFn("combat", `The Hedgehog cancelled: both knights carry an underdog shield`);
+      } else if (opponentHasHigherTotal) {
+        mightBonus += 1;
+        logFn("combat", `The Hedgehog activated automatically: +1 might (opponent has a higher combat total)`);
+      }
     }
 
     // Dragonsbane ring (only vs dragon, but no downside - use automatically when applicable)
@@ -385,12 +422,20 @@ export async function resolveChampionVsChampionCombat(
     logFn("combat", `${attackingPlayer.name} rolled [${Math.floor(attackerRoll / 2)}+${attackerRoll - Math.floor(attackerRoll / 2)}] = ${attackerRoll}`);
     logFn("combat", `${defendingPlayer.name} rolled [${Math.floor(defenderRoll / 2)}+${defenderRoll - Math.floor(defenderRoll / 2)}] = ${defenderRoll}`);
 
+    // Underdog shields (Porcupine/Hedgehog) cancel out when both knights carry one
+    const underdogShieldsCancel = hasUnderdogShield(attackingChampion) && hasUnderdogShield(opposingChampion);
+    const attackerTotalBeforeItems = attackingPlayer.might + attackerRoll + attackerSupport;
+    const defenderTotalBeforeItems = defendingPlayer.might + defenderRoll + defenderSupport;
+
     // Now ask both players about their item usage after seeing dice results
     const attackerItemResult = await handlePostDiceItemDecisions(
       attackingChampion,
       attackingPlayer,
       `[${Math.floor(attackerRoll / 2)}+${attackerRoll - Math.floor(attackerRoll / 2)}] = ${attackerRoll}`,
-      defendingPlayer.might,
+      defenderTotalBeforeItems,
+      attackerTotalBeforeItems,
+      true, // PVP combat
+      underdogShieldsCancel,
       false, // not dragon fight
       playerAgent,
       gameState,
@@ -404,7 +449,10 @@ export async function resolveChampionVsChampionCombat(
       opposingChampion,
       defendingPlayer,
       `[${Math.floor(defenderRoll / 2)}+${defenderRoll - Math.floor(defenderRoll / 2)}] = ${defenderRoll}`,
-      attackingPlayer.might,
+      attackerTotalBeforeItems,
+      defenderTotalBeforeItems,
+      true, // PVP combat
+      underdogShieldsCancel,
       false, // not dragon fight
       defendingPlayerAgent,
       gameState,
@@ -649,6 +697,9 @@ async function performChampionVsMonsterCombat(
     player,
     championRoll,
     monster.might,
+    player.might + championRoll + supportBonus,
+    false, // not PVP
+    false, // monsters carry no underdog shields
     false, // not dragon fight
     playerAgent,
     gameState,
@@ -660,7 +711,7 @@ async function performChampionVsMonsterCombat(
   // Handle spear bonus against beasts (special case)
   let spearBonus = 0;
   const hasSpear = champion?.items.some(item => item.traderItem?.id === "spear") || false;
-  const isFightingBeast = monster.isBeast || false;
+  const isFightingBeast = monster.monsterType === "beast";
   if (hasSpear && isFightingBeast) {
     spearBonus = 1;
     logFn("combat", `Spear provides additional +1 might against ${monster.name} (beast)`);
@@ -895,10 +946,10 @@ export async function resolveChampionVsDragonEncounter(
   if (impressedDragon) {
     // Increment impression counter
     tile.impressionCounter = (tile.impressionCounter || 0) + 1;
-    logFn("system", `Dragon impression count: ${tile.impressionCounter}/3`);
+    logFn("system", `Dragon impression count: ${tile.impressionCounter}/${GameSettings.DRAGON_IMPRESSIONS_TO_WIN}`);
 
-    // Check if this is the final impression (3rd time)
-    if (tile.impressionCounter >= 3) {
+    // Check if this is the final impression
+    if (tile.impressionCounter >= GameSettings.DRAGON_IMPRESSIONS_TO_WIN) {
       const finalImpressionType =
         impressionType === "Fame" ? "Fame Victory (Final Impression)" as const :
           impressionType === "Gold" ? "Gold Victory (Final Impression)" as const :
@@ -990,7 +1041,10 @@ export async function resolveChampionVsDragonEncounter(
     champion,
     player,
     championRoll,
-    GameSettings.DRAGON_BASE_MIGHT + dragonRoll, // opponent might (dragon total)
+    GameSettings.DRAGON_BASE_MIGHT + dragonRoll, // opponent total (dragon)
+    player.might + championRoll + supportBonus,
+    false, // not PVP
+    false, // the dragon carries no underdog shield
     true, // is dragon fight
     playerAgent,
     gameState,
@@ -1048,10 +1102,10 @@ export async function resolveChampionVsDragonEncounter(
 
     // Increment impression counter for combat victory
     tile.impressionCounter = (tile.impressionCounter || 0) + 1;
-    logFn("system", `Dragon impression count: ${tile.impressionCounter}/3`);
+    logFn("system", `Dragon impression count: ${tile.impressionCounter}/${GameSettings.DRAGON_IMPRESSIONS_TO_WIN}`);
 
-    // Check if this is the final impression (3rd time)
-    if (tile.impressionCounter >= 3) {
+    // Check if this is the final impression
+    if (tile.impressionCounter >= GameSettings.DRAGON_IMPRESSIONS_TO_WIN) {
       return {
         encounterOccurred: true,
         combatResult: {

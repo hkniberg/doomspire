@@ -1,4 +1,5 @@
 import { GameState } from "../game/GameState";
+import { GameSettings } from "../lib/GameSettings";
 import type { CarriableItem, Champion, Monster, Player, ResourceType, Tile } from "../lib/types";
 
 /**
@@ -298,8 +299,8 @@ function formatTileForBoard(tile: Tile, gameState: GameState): string {
         break;
       case "doomspire":
         const impressionCount = tile.impressionCounter || 0;
-        lines.push(`- Doomspire Dragon (might 13) - Impressed ${impressionCount}/3 times`);
-        if (impressionCount >= 3) {
+        lines.push(`- Doomspire Dragon (might ${GameSettings.DRAGON_BASE_MIGHT}) - Impressed ${impressionCount}/${GameSettings.DRAGON_IMPRESSIONS_TO_WIN} times`);
+        if (impressionCount >= GameSettings.DRAGON_IMPRESSIONS_TO_WIN) {
           lines.push("- The dragon has left the island!");
         }
         break;
@@ -441,9 +442,9 @@ export function formatBuildingInfo(buildingType: string): string {
 function formatMonsterInfo(monster: Monster): string {
   let monsterInfo = monster.id;
 
-  // Add beast designation if applicable
-  if (monster.isBeast) {
-    monsterInfo += " (beast)";
+  // Add monster type designation if applicable
+  if (monster.monsterType) {
+    monsterInfo += ` (${monster.monsterType})`;
   }
 
   // Add might

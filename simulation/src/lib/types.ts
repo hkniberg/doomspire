@@ -7,6 +7,7 @@ export type ResourceType = "food" | "wood" | "ore" | "gold";
 export type MarketResourceType = "food" | "wood" | "ore";
 export type TileTier = 1 | 2 | 3;
 export type AdventureThemeType = "beast" | "cave" | "grove";
+export type MonsterType = "beast" | "humanoid" | "troll" | "golem" | "plant" | "fey" | "undead" | "demon";
 export type OceanPosition = "nw" | "ne" | "sw" | "se";
 export type TileType =
   | "empty"
@@ -60,7 +61,7 @@ export interface Monster {
   might: number; // Might needed to beat it
   fame: number; // Fame gained for winning
   resources: Record<ResourceType, number>; // Resources gained for beating it
-  isBeast?: boolean; // Whether this monster is classified as a beast (default false)
+  monsterType?: MonsterType; // Shown as a tag on the card; some items refer to these types
 }
 
 export interface Tile {

@@ -8,7 +8,20 @@ export interface FateCard {
   effect: string;
 }
 
+// The first fate card of every game is predecided: during setup, place Settling face up on top of the deck
+export const FIRST_FATE_CARD_ID = "settling";
+
 export const FATE_CARDS: FateCard[] = [
+  // Predecided first card
+  {
+    id: "settling",
+    name: "Settling",
+    type: "event",
+    flavorText: "The lords arrive and stake their claims in peace... for now.",
+    effect:
+      "**No deliberate combat** this round: knights cannot move into a tile with another knight or a creature.\n*Always the first fate card of the game.*",
+  },
+
   // Council Vote Cards - YES/NO
   {
     id: "tax-the-crown",
