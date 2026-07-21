@@ -353,7 +353,7 @@ When you enter or interact with the doomspire tile, you attempt to impress the d
 - If you have 17+ fame, 12+ gold, or own 4+ starred resource tiles, you automatically impress the dragon.
 - If not, you must fight the dragon - fleeing is impossible. You can't kill the dragon, but defeating it in combat will impress it.
 - A player can impress the dragon at most once per round.
-- A knight can stay at Doomspire, but needs to impress the dragon each round or be eaten.
+- A knight can stay at Doomspire, at great risk: if your knight is still at Doomspire at the end of your turn in the movement phase, it must impress the dragon or be eaten. This check does not require an action die. If you have already impressed the dragon this round, the dragon dozes and the knight may stay.
 - If an opposing knight is at Doomspire when you enter, you must fight them first (normal PVP combat rules apply). If you lose, you go home without facing the dragon, and lose resources to the other player. See 'Resolving knight to knight combat' section. If you win, choose one:
   - Face the dragon as usual, and impress it or be eaten.
   - Accept a ride home: the dragon is so happy that you got rid of that pesky knight that it offers to fly you back to your home tile. No impression attempt, no risk.

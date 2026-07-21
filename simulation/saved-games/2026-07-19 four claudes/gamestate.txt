@@ -1,0 +1,321 @@
+# Game session
+- Current round: 18
+- Current player: Opus
+- Fate card this round: Storm Season
+
+# Players
+
+## Haiku
+- Might: 2
+- Fame: 7
+- Dragon impressions: 0/2
+- Home: (0,0)
+- Resource stockpile: 1 food, 1 wood, 2 ore, 7 gold
+- champion2 at (0,3)
+  - Has Trollsbane (trollsbane) - A cursed axe, forged with fury towards `trolls`and their ilk. When fighting one, you may pay `-1 fame` to gain `+2 might`for this battle.
+  - Follower: Witch (witch)
+- champion2 at (0,0)
+- boat1 at (ne)
+- Buildings:
+  - fletcher (buy 1 might for 3 wood + 1 ore, once per harvest phase)
+  - warship upgrade (boats provide combat support in adjacent coastal battles)
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+- claims (4 tiles):
+  - Tile (0,0) providing 1 food, 1 wood
+  - Tile (0,2) providing 1 gold (protected)
+  - Tile (1,0) providing 1 food (protected)
+  - Tile (2,1) providing 1 ore
+
+## Sonnet
+- Might: 7
+- Fame: 8
+- Dragon impressions: 1/2
+- Home: (0,7)
+- Resource stockpile: 2 food, 3 gold
+- boat1 at (sw)
+- Buildings:
+  - fletcher (buy 1 might for 3 wood + 1 ore, once per harvest phase)
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+  - blacksmith (buy 1 might for 1 gold + 3 ore, once per harvest phase)
+- claims (3 tiles):
+  - Tile (0,7) providing 1 food, 1 wood
+  - Tile (1,3) (starred) providing 2 ore
+  - Tile (2,3) (starred) providing 1 wood, 1 ore
+
+## Opus
+- Might: 3
+- Fame: 10
+- Dragon impressions: 2/2
+- Home: (7,0)
+- Resource stockpile: 1 food, 1 wood, 17 gold
+- champion1 at (7,0)
+  - Has Spear (spear) - Gain `+1 might` when fighting **beasts**.
+- champion2 at (4,3)
+  - Has The Dragon's Egg (dragons-egg) - A dragon egg, lost long ago. Carry it to **Doomspire** and return it to *impress the dragon* once, as if you had reached one of the four win-conditions. The egg is then gone.
+- champion3 at (7,4)
+- boat1 at (nw)
+- Buildings:
+  - fletcher (buy 1 might for 3 wood + 1 ore, once per harvest phase)
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+- claims (8 tiles):
+  - Tile (5,1) providing 1 wood
+  - Tile (5,3) (starred) providing 2 gold (protected)
+  - Tile (6,0) providing 1 food (protected)
+  - Tile (6,2) providing 1 food
+  - Tile (6,3) providing 1 ore
+  - Tile (7,0) providing 1 food, 1 wood
+  - Tile (7,3) providing 1 wood (protected)
+  - Tile (7,5) providing 1 ore (protected)
+
+## Fable
+- Might: 0
+- Fame: 2
+- Dragon impressions: 1/2
+- Home: (7,7)
+- Resource stockpile: 10 gold
+- champion1 at (7,7)
+- champion2 at (7,7)
+- boat1 at (se)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+- claims (9 tiles):
+  - Tile (2,5) (starred) providing 2 wood
+  - Tile (2,7) (starred) providing 1 food, 1 ore
+  - Tile (3,0) providing 1 food
+  - Tile (3,1) providing 1 ore
+  - Tile (4,6) providing 1 wood
+  - Tile (4,7) (starred) providing 2 food
+  - Tile (5,6) providing 1 gold
+  - Tile (6,7) providing 1 ore (protected)
+  - Tile (7,7) providing 1 food, 1 wood
+
+# Board
+
+Tile (0,0)
+- Home tile for Haiku (can ONLY be entered by Haiku's champions)
+- Haiku champion2 is here
+
+Tile (0,1)
+- Tier 1 adventure tile
+
+Tile (0,2)
+- Resource tile providing 1 gold
+- Claimed by Haiku
+- Protected by unit in neighbouring tile
+
+Tile (0,3)
+- Tier 1 adventure tile
+- Haiku champion2 is here
+
+Tile (0,4)
+- Temple (no combat). Sacrifice 2 fame to gain 1 might (once per round)
+
+Tile (0,5)
+- Mercenary camp (no combat). Buy 1 might for 3 gold (once per round)
+
+Tile (0,6)
+- Tier 1 adventure tile
+
+Tile (0,7)
+- Home tile for Sonnet (can ONLY be entered by Sonnet's champions)
+
+Tile (1,0)
+- Resource tile providing 1 food
+- Claimed by Haiku
+- Protected by unit in neighbouring tile
+
+Tile (1,1)
+- Trader (no combat). Exchange 2 of any resource (food/wood/ore/gold) for 1 of any resource. Buy weapons/tools/items for gold. Once per round
+
+Tile (1,2)
+- Tier 1 oasis
+
+Tile (1,3)
+- Starred Resource tile providing 2 ore
+- Claimed by Sonnet
+
+Tile (1,4)
+- Unclaimed Resource tile providing 1 wood
+
+Tile (1,5)
+- Tier 1 adventure tile
+
+Tile (1,6)
+- Unclaimed Resource tile providing 1 food
+
+Tile (1,7)
+- Unclaimed Resource tile providing 1 wood
+
+Tile (2,0)
+- Tier 1 adventure tile
+
+Tile (2,1)
+- Resource tile providing 1 ore
+- Claimed by Haiku
+
+Tile (2,2)
+- Tier 2 adventure tile
+
+Tile (2,3)
+- Starred Resource tile providing 1 wood, 1 ore
+- Claimed by Sonnet
+
+Tile (2,4)
+- Tier 2 adventure tile
+
+Tile (2,5)
+- Starred Resource tile providing 2 wood
+- Claimed by Fable
+
+Tile (2,6)
+- Tier 1 adventure tile
+
+Tile (2,7)
+- Starred Resource tile providing 1 food, 1 ore
+- Claimed by Fable
+
+Tile (3,0)
+- Resource tile providing 1 food
+- Claimed by Fable
+
+Tile (3,1)
+- Resource tile providing 1 ore
+- Claimed by Fable
+
+Tile (3,2)
+- Unclaimed Starred Resource tile providing 2 food
+- Monster: bear (beast) (might 5) (reward 2 fame, 3 food)
+
+Tile (3,3)
+- Tier 3 adventure tile
+
+Tile (3,4)
+- Unexplored tier 3 tile
+
+Tile (3,5)
+- Unexplored tier 1 tile
+
+Tile (3,6)
+- Wolf Den
+
+Tile (3,7)
+- Tier 1 adventure tile
+
+Tile (4,0)
+- Tier 1 adventure tile
+- Monster: bandit (humanoid) (might 3) (reward 1 fame, 2 gold)
+
+Tile (4,1)
+- Tier 2 adventure tile
+
+Tile (4,2)
+- Unexplored tier 2 tile
+
+Tile (4,3)
+- Doomspire Dragon (might 8 + 2D3). Impress it (17+ fame, 12+ gold, 4+ starred tiles, or defeat it in combat) or be eaten. First player to impress it 2 times wins
+- Opus champion2 is here
+
+Tile (4,4)
+- Unexplored tier 3 tile
+
+Tile (4,5)
+- Bear Cave
+- Monster: bear (beast) (might 5) (reward 2 fame, 3 food)
+
+Tile (4,6)
+- Resource tile providing 1 wood
+- Claimed by Fable
+
+Tile (4,7)
+- Starred Resource tile providing 2 food
+- Claimed by Fable
+
+Tile (5,0)
+- Tier 1 adventure tile
+
+Tile (5,1)
+- Resource tile providing 1 wood
+- Claimed by Opus
+
+Tile (5,2)
+- Tier 2 adventure tile
+
+Tile (5,3)
+- Starred Resource tile providing 2 gold
+- Claimed by Opus
+- Protected by unit in neighbouring tile
+
+Tile (5,4)
+- Tier 2 adventure tile
+
+Tile (5,5)
+- Unexplored tier 2 tile
+
+Tile (5,6)
+- Resource tile providing 1 gold
+- Claimed by Fable
+
+Tile (5,7)
+- Wolf Den
+
+Tile (6,0)
+- Resource tile providing 1 food
+- Claimed by Opus
+- Protected by unit in neighbouring tile
+
+Tile (6,1)
+- Tier 1 oasis
+
+Tile (6,2)
+- Resource tile providing 1 food
+- Claimed by Opus
+
+Tile (6,3)
+- Resource tile providing 1 ore
+- Claimed by Opus
+
+Tile (6,4)
+- Wolf Den
+
+Tile (6,5)
+- Tier 2 adventure tile
+
+Tile (6,6)
+- Tier 1 oasis
+
+Tile (6,7)
+- Resource tile providing 1 ore
+- Claimed by Fable
+- Protected by unit in neighbouring tile
+
+Tile (7,0)
+- Home tile for Opus (can ONLY be entered by Opus's champions)
+- Opus champion1 is here
+
+Tile (7,1)
+- Tier 1 adventure tile
+
+Tile (7,2)
+- Tier 2 adventure tile
+
+Tile (7,3)
+- Resource tile providing 1 wood
+- Claimed by Opus
+- Protected by unit in neighbouring tile
+
+Tile (7,4)
+- Tier 1 adventure tile
+- Opus champion3 is here
+
+Tile (7,5)
+- Resource tile providing 1 ore
+- Claimed by Opus
+- Protected by unit in neighbouring tile
+
+Tile (7,6)
+- Tier 1 adventure tile
+
+Tile (7,7)
+- Home tile for Fable (can ONLY be entered by Fable's champions)
+- Fable champion1 is here
+- Fable champion2 is here
