@@ -204,6 +204,8 @@ export interface TurnContext {
   turnNumber: number;
   diceRolled: number[];
   remainingDiceValues: number[];
+  /** If the player's previous dice action was rejected as invalid, the error message (for a retry prompt) */
+  previousError?: string;
 }
 
 /**
@@ -245,6 +247,7 @@ export type GamePhase = "fate" | "roll" | "move" | "harvest";
 export interface FateEffects {
   fateCardId?: string;
   fateCardName?: string;
+  fateCardEffect?: string; // The card's effect text, so prompts can show what the card does
   settling?: boolean; // No deliberate combat: knights cannot move into a tile with another knight or a creature
   noPvpCombat?: boolean; // Ceasefire: no PVP combat, knights pass through freely
   harvestBlockedForAll?: boolean; // Famine

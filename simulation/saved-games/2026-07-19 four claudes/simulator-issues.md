@@ -1,75 +1,84 @@
 # Simulator Issues — observed in the Four Claudes match (2026-07-19)
 
-Things to investigate in the simulator and AI prompts, separated from the game-design findings in `playtest-analysis.md`. Nothing here has been fixed yet — this is a checklist for later.
+Things to investigate in the simulator and AI prompts, separated from the game-design findings in `playtest-analysis.md`.
 
-## 1. Action failures consumed dice / overload error handling
+**Status update (2026-07-21): all items below have been addressed.** Each issue now carries a resolution note.
+
+## 1. Action failures consumed dice / overload error handling — FIXED
 
 - **Round 14, Sonnet:** two consecutive Anthropic API `overloaded_error` responses during her attack on Fable's knight at (2,5). Both failures **consumed her dice**, so the attack she had planned (and narrated) never resolved.
-- Proposed handling: the Anthropic SDK likely already does automatic retries, so by the time we see `overloaded_error` it may be reasonable to treat it as unrecoverable for that prompt. But we need a **fallback (e.g., a random legal action)** so a failed prompt doesn't stall or corrupt the match — and ideally infra failures shouldn't burn the player's dice at all.
-- **Round 12, Haiku:** `Dice action failed: Champion 1 not found for player Haiku` — she tried to command champion1, which had been eaten by the dragon in round 11. The die was consumed. Two possible fixes: present dead champions more clearly in the prompt/game state, and/or reject-and-retry invalid actions instead of consuming the die.
-- **Round 13, Haiku:** `Dice action failed: Dice value 2 not found in remaining dice []` — the AI planned two actions but the first consumed all dice; the second failed against an empty pool. Suggests the AI's view of remaining dice can go stale mid-turn, or the prompt should re-state remaining dice between actions.
+- **Round 12, Haiku:** `Dice action failed: Champion 1 not found for player Haiku` — she tried to command champion1, which had been eaten by the dragon in round 11. The die was consumed.
+- **Round 13, Haiku:** `Dice action failed: Dice value 2 not found in remaining dice []` — the AI planned two actions but the first consumed all dice; the second failed against an empty pool.
 - **Round 15, Haiku:** `Champion 2 has already interacted with a tile and cannot use more action dice this round` — similar category: the AI issued an illegal follow-up action.
 
-## 2. Unresolved combat state after failed actions (engine bug)
+**Resolution:** `GameMaster.executeOneDiceAction` now (1) **pre-validates** every dice action (champion exists, hasn't interacted, dice values available, lockdown) *before* any dice are consumed, so invalid actions are side-effect-free; (2) **retries once** with the rejection reason injected into the prompt (`previousError` in `TurnContext` → `<previous-action-rejected>` section in `diceAction.md`); (3) falls back to a **random legal action** (via `RandomPlayerAgent`) if the retry fails or the AI call itself fails (infra errors like `overloaded_error`, which `claude.ts` already retries 4x with backoff). Dice are only burned as an absolute last resort if even the random fallback fails. The old double-burn (consume + catch-burn) is gone.
 
-Fallout from issue 1: at the end of round 14, Sonnet's champion1 and Fable's champion2 were **co-located on (2,5) with combat never resolved**. Fable's round-14 reasoning explicitly called it out: "a simulator glitch left them co-located without combat resolving." Enemy knights sharing a non-special tile should be impossible. Needs a state-validation pass, or combat resolution triggered on co-location regardless of how it arose.
+## 2. Unresolved combat state after failed actions (engine bug) — FIXED
 
-## 3. Duplicate champion IDs (state bug — possibly already fixed)
+At the end of round 14, Sonnet's champion1 and Fable's champion2 were co-located on (2,5) with combat never resolved, after an API failure mid-combat.
 
-An AI player (Haiku) lost champion1 while already having a champion2; the newly recruited champion was **also named champion2**. The final `gamestate.txt` still lists Haiku with two `champion2` entries (at (0,3) and at (0,0)). This may already be fixed (a prompt about it was written during the match) — verify, and check whether it's display-only or the engine actually collides IDs. Issue 1's "Champion 1 not found" failure may be related.
+**Resolution:** the defender's fight/flee decision in `fleeHandler.ts` (the uncaught `makeDecision` that caused this) now defaults to "fight" on agent failure instead of aborting combat mid-resolution. Additionally, `GameMaster.validateNoUnresolvedCombat` runs after every move phase and logs a loud `STATE WARNING` if enemy knights are ever co-located on a combat-eligible tile.
 
-## 4. Fate card votes — rules and implementation questions
+## 3. Duplicate champion IDs (state bug) — FIXED (was NOT already fixed)
 
-- **Do 0-fame players need to vote at all?** Their vote weight is 0, so it can never affect the outcome. Rules don't exempt them; simulator could skip prompting them to save tokens/time (but log a weight-0 abstention for flavor?).
-- **Are AI votes collected simultaneously/independently?** They should be — the simulator notes say votes are one-shot decisions with no discussion. Verify that later voters are not shown earlier players' votes.
-- **Do voters get the full text of the fate card** (including the consequences of YES/NO/target) when asked? They can't vote sensibly without it. Also check what the game rules say about vote procedure — the rulebook only says votes are "resolved now, before any dice are rolled" and fame-weighted; simultaneity/secrecy isn't specified in the rules either (may deserve a rulebook clarification too).
+Haiku lost champion1 while already having a champion2; the newly recruited champion was **also named champion2** (recruitment used `champions.length + 1`).
 
-## 5. Fate card content in the dice action prompt
+**Resolution:** `buildActionHandler.ts` now assigns `max(existing champion ids) + 1`, which cannot collide after a death.
 
-The current-board-state section of the dice action request says e.g. "Fate card this round: Grand Tourney" — **name only**. Verify whether the card's actual effect text is provided elsewhere in the prompt; if not, add it. An AI can't factor in "no boat movement this round" from the name alone.
+## 4. Fate card votes — rules and implementation questions — FIXED
 
-## 6. AI food-tax planning failures (prompt tuning)
+**Resolution (all three sub-questions):**
 
-Players lost dice to the 2-food dice tax roughly **19 times across 18 rounds** — Opus lost dice in 6 of the last 7 rounds despite an 8-tile economy. The AIs repeatedly wrote "keep 2 food for next round's dice tax" in their plans and then sold or spent down to zero food anyway. The tax itself is intended design (human players plan around it routinely). Options:
+- **0-fame players are no longer prompted** — they are skipped and logged as a weight-0 abstention ("X abstains (0 fame, vote weight 0)").
+- **Votes are now secret and simultaneous**: all votes are collected before any are logged, so later voters can no longer see earlier votes in their game log (previously votes were logged one at a time, mid-collection).
+- **Voters now get the full fate card text** (name + effect) in the vote decision prompt, plus a note that votes are secret and simultaneous.
+- **Rulebook clarified** (`docs/game-rules.md`, Fate cards section): votes are cast secretly and simultaneously, then revealed together; 0-fame players may abstain. Cheat sheet and `simulator-notes-for-ai.md` updated to match.
 
-- Add an explicit reminder to the harvest/decision prompts: current food vs. next round's tax cost, e.g. "You have N knights; rolling all dice next round costs X food; you currently have Y."
-- Or accept it as a model-capability limitation and note it when reading AI playtest results.
+## 5. Fate card content in the dice action prompt — FIXED
 
-## 7. AI never used special-tile parking (prompt tuning)
+The board-state section said e.g. "Fate card this round: Grand Tourney" — name only.
 
-No AI ever parked a knight at the mercenary camp or temple to convert resources round after round — a pattern human players use routinely. All four models also never bought a trader item other than the Spear, never built a chapel, and never bought a second boat. Some of this is this match's meta (gold hoarding punishes spending), but the prompts may under-signal these standing options. Consider mentioning repeat-use special-tile strategies in the prompts, or verify against a human game before concluding anything design-wise.
+**Resolution:** `FateEffects` now stores `fateCardEffect`; the board state (`gameStateStringifier.formatGameSession`) and the strategic assessment prompt both render "Fate card this round: {name} - {effect text}".
 
-## 8. Doomspire impression check timing — interim rule decided, simulator needs updating
+## 6. AI food-tax planning failures (prompt tuning) — FIXED
 
-**Interim decision (2026-07-21, pending codesigner discussion):** the impression check happens **when a knight enters the Doomspire tile, or at the end of the owner's turn in the movement phase for knights camped there** (no action die needed; a player who already impressed this round is skipped — the dragon dozes). Chosen as the simplest rule to learn and run. `docs/game-rules.md` and the cheat sheet have been updated to say this. See `playtest-analysis.md` §3.1 for the full option list still under discussion.
+Players lost dice to the 2-food dice tax roughly 19 times across 18 rounds despite planning to keep food.
 
-**TODO:**
-- Update the simulator: it currently fires the check **at the start of the camping knight's owner's move turn**, before the player can act. It should instead fire at the **end of the owner's move turn**, so the owner can evacuate or repair the condition with their dice first.
-- Until the simulator is changed, the deviation is documented in `simulator-notes-for-ai.md` so AI players aren't misled.
-- Note: three knights died in this match under the old start-of-turn interpretation; under end-of-owner's-turn the owner can always walk a doomed knight away.
+**Resolution:** both the dice action prompt and the harvest decision prompt now include a computed reminder (`ClaudePlayer.buildFoodTaxReminder`): "with N knight(s) you roll N+1 dice next round... the other X cost 2 food each (Y food total). You currently have Z food - if you end this round with less than Y food, you will lose dice next round." (Accounts for the doubled-tax adventure card.)
 
-## 9. Doomspire PVP winner's "ride home" option — implemented?
+## 7. AI never used special-tile parking (prompt tuning) — FIXED
 
-Per the rules, a knight who kicks an opposing knight out of Doomspire may choose to fly home instead of facing the dragon. **Round 15 suggests this may not be offered:** Sonnet's plan explicitly said she would decline the dragon and take the ride home after beating Fable's knight — but Fable's knight *fled* (rather than fought), and Sonnet was then forced into the dragon fight and eaten. Two things to check:
+**Resolution:** `strategicAssessment.md` tips now explicitly mention parking a knight at a special tile (mercenary camp / temple / trader) to use it round after round, and warn against gold hoarding vs buying trader items, a chapel, a second boat, or extra knights. Whether this changes AI behavior should be verified in the next AI playtest.
 
-- Is the ride-home choice implemented at all after a PVP win at Doomspire?
-- Rules gap: does the ride-home offer also apply when the defender **flees** instead of losing combat? (Sonnet "got rid of the pesky knight" either way — the rules only say "if you win.")
+## 8. Doomspire impression check timing — FIXED (simulator now matches the rules)
 
-## 10. UI: show followers on champions
+The interim rule (check on entry, or at the **end** of the owner's move turn for camped knights) was already in `docs/game-rules.md` and the cheat sheet, but the simulator fired the check at the **start** of the owner's move turn.
 
-Items are shown on champions in the UI — verify followers (Witch, Brawler) are displayed the same way. They affect combat math and are invisible otherwise.
+**Resolution:** `handleDoomspireStayCheck` now runs at the end of the owner's move phase (after the dice loop), so the owner can evacuate or repair the impression condition first. Knights that already faced the dragon this round (entered/interacted with Doomspire during the move phase) are skipped, and the existing "already impressed this round → dragon dozes" skip still applies.
 
-## 11. UI: visualize dragon impressions on the board
+## 9. Doomspire PVP winner's "ride home" option — FIXED (both sub-issues)
 
-Show each player's impression count (0/2, 1/2) somewhere visible on the board/player boxes — it's the single most important stat in the endgame and currently only lives in the game state text.
+- The ride-home choice **was** implemented after a PVP *win*, but not when the defender **fled** — which is what killed Sonnet in round 15.
 
-## 12. Noisy FAILED entries in harvest decisions — find the root cause
+**Resolution:** the combat handlers now report `defenderFled`, and `GameMaster` offers the ride home in both cases (win or successful defender flee). The rules gap is closed: `docs/game-rules.md` now says "If you win (or the defender flees), choose one: ...", and the cheat sheet says "won the fight, or they fled".
 
-The logs are full of failures like `FAILED market: No resources to sell`, `FAILED build_fletcher: Already has fletcher`, `FAILED market: No market building` — this happens very often. Investigate why: does the harvest-decision schema/prompt encourage the AI to always fill in a market/building action even when invalid? Either tighten the schema (only offer valid options), fix the prompt, or filter these from the log so real failures stand out.
+## 10. UI: show followers on champions — FIXED
 
-## 13. Reasoning-text artifacts leaked into actions (LLM output handling)
+**Resolution:** `PlayerInfoBox` now renders followers (Witch, Brawler, etc.) as mini encounter cards next to the champion's items, with a "Follower" tag.
 
-- **Round 6, Fable:** action reason contained `Wait - correcting: my plan is to claim the gold tile at (5,6)...` — and the move that executed was the *wrong* one (champion2 went to his own ore tile at (6,7) instead of (5,6)), costing him a turn and nearly the gold tile.
-- **Round 7, Fable:** reason text contained `दWait — that JSON had a typo. Correcting: {.` — malformed JSON fragments surfacing in the log.
+## 11. UI: visualize dragon impressions on the board — FIXED
 
-Suggests the action-parsing path sometimes accepts a first-draft action while the model was self-correcting. Worth checking schema validation / whether the model should get a repair-retry instead of partial execution.
+**Resolution:** each player's info box now shows "Impressions: X/2" (threshold from `GameSettings.DRAGON_IMPRESSIONS_TO_WIN`) next to Fame and Might, highlighted in red once above zero.
+
+## 12. Noisy FAILED entries in harvest decisions — FIXED
+
+Root cause: the AI often filled in the *optional* `sellAtMarket`/`buildAction` schema fields with zero amounts or invalid choices, and the handler treated any present field as an attempt.
+
+**Resolution:** an all-zero `sellAtMarket` object is now treated as "not using the market" (a silent no-op, not a failure), and the schema descriptions for `sellAtMarket`, `useBlacksmith`, `useFletcher`, and `buildAction` now say to omit the field entirely when unused (and to only pick affordable build actions listed in the prompt). Genuine failures (no building, can't afford) are still logged.
+
+## 13. Reasoning-text artifacts leaked into actions (LLM output handling) — FIXED
+
+- **Round 6, Fable:** first-draft action executed while the correction lived only in the reason text.
+- **Round 7, Fable:** malformed JSON fragments surfaced in the log.
+
+**Resolution:** two layers. (1) The JSON repair fallback in `claude.ts` now extracts the **last balanced JSON object** from the response (the model's final answer after self-correction) instead of naively slicing from the first `{` to the last `}`, which merged drafts into junk. (2) The validate-and-retry loop from issue 1 catches schema-valid-but-illegal first drafts: an invalid action is rejected without consuming dice and the model is re-prompted with the rejection reason.

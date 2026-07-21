@@ -1,5 +1,5 @@
 import { GameState } from "@/game/GameState";
-import { CarriableItem, DecisionContext, DecisionOption, GameLogEntry, Player, Position, ResourceType, Tile } from "@/lib/types";
+import { CarriableItem, Decision, DecisionContext, DecisionOption, GameLogEntry, Player, Position, ResourceType, Tile } from "@/lib/types";
 import { formatResources } from "@/lib/utils";
 import { PlayerAgent } from "@/players/PlayerAgent";
 import { canChampionCarryMoreItems, getItemSlotSize } from "@/players/PlayerUtils";
@@ -205,8 +205,15 @@ export async function handleFleeDecision(
     ]
   };
 
-  // Ask player to decide
-  const decision = await playerAgent.makeDecision(context.gameState, gameLog, decisionContext, thinkingLogger);
+  // Ask player to decide. If the agent fails (e.g. AI API outage), default to fighting
+  // rather than aborting mid-combat and leaving enemy knights co-located on the tile.
+  let decision: Decision;
+  try {
+    decision = await playerAgent.makeDecision(context.gameState, gameLog, decisionContext, thinkingLogger);
+  } catch (error) {
+    logFn("combat", `Champion${context.championId}'s fight/flee decision failed (${error instanceof Error ? error.message : String(error)}) - defaulting to fight`);
+    decision = { choice: "fight" };
+  }
 
   if (decision.choice === "fight") {
     return {

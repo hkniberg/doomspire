@@ -194,7 +194,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
 
         // Describe the current fate card (round-scoped effects)
         const fateSection = gameState.fateEffects.fateCardName
-            ? `\nCurrent fate card: ${gameState.fateEffects.fateCardName} (applies this round only)`
+            ? `\nCurrent fate card: ${gameState.fateEffects.fateCardName}${gameState.fateEffects.fateCardEffect ? ` - ${gameState.fateEffects.fateCardEffect}` : ""} (applies this round only)`
             : "";
 
         const variables: TemplateVariables = {
@@ -223,12 +223,19 @@ export class ClaudePlayerAgent implements PlayerAgent {
         // Format the game log into readable text
         const gameLogText = this.formatGameLogForPrompt(gameLog, true, true);
 
+        // If the previous action was rejected as invalid, tell the model why so it can correct itself
+        const previousErrorSection = turnContext.previousError
+            ? `\n<previous-action-rejected>\nYour previous dice action was rejected as invalid: ${turnContext.previousError}\nChoose a different, legal action.\n</previous-action-rejected>\n`
+            : "";
+
         const variables: TemplateVariables = {
             playerName: this.name,
             gameLog: gameLogText,
             boardState: boardState,
             turnNumber: turnContext.turnNumber,
             remainingDice: turnContext.remainingDiceValues.join(", "),
+            previousError: previousErrorSection,
+            foodTaxReminder: this.buildFoodTaxReminder(gameState),
             extraInstructions: this.getExtraInstructionsSection(gameState)
         };
 
@@ -345,6 +352,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
             harvestInfo: harvestInfo,
             availableBuildings: availableBuildings,
             availableBuildActions: buildActionsText,
+            foodTaxReminder: this.buildFoodTaxReminder(gameState),
             extraInstructions: this.getExtraInstructionsSection(gameState),
         };
 
@@ -466,6 +474,34 @@ export class ClaudePlayerAgent implements PlayerAgent {
         }
 
         return availableActions;
+    }
+
+    /**
+     * A concrete reminder about next round's dice food tax, so the AI doesn't sell or
+     * spend down its food and then lose dice (a recurring AI failure in playtests).
+     */
+    private buildFoodTaxReminder(gameState: GameState): string {
+        const player = gameState.getPlayer(this.name);
+        if (!player) {
+            return "";
+        }
+
+        const knightCount = player.champions.length;
+        const totalDice = 1 + knightCount;
+        const taxMultiplier = gameState.doubleFoodTaxNextRound ? 2 : 1;
+        const taxPerDie = GameSettings.DICE_TAX_FOOD_PER_DIE * taxMultiplier;
+        const taxedDice = Math.max(0, totalDice - GameSettings.FREE_DICE_COUNT);
+        const foodCost = taxedDice * taxPerDie;
+
+        if (foodCost === 0) {
+            return `Food tax reminder: with ${knightCount} knight(s) you roll ${totalDice} dice next round, all free (no food tax).`;
+        }
+
+        const doubledNote = taxMultiplier > 1 ? ", doubled next round by Blessing of the Lonesome" : "";
+        return `Food tax reminder: with ${knightCount} knight(s) you roll ${totalDice} dice next round. ` +
+            `The first ${GameSettings.FREE_DICE_COUNT} are free; the other ${taxedDice} cost ${taxPerDie} food each ` +
+            `(${foodCost} food total${doubledNote}). You currently have ${player.resources.food} food - ` +
+            `if you end this round with less than ${foodCost} food, you will lose dice next round.`;
     }
 
     private getExtraInstructionsSection(gameState: GameState): string {

@@ -165,15 +165,15 @@ export const harvestActionSchema = {
  */
 export const buildingUsageDecisionSchema = {
   type: "object",
-  description: "Parameters for using existing buildings",
+  description: "Parameters for using existing buildings. Omit fields entirely for buildings you don't have or don't want to use.",
   properties: {
     useBlacksmith: {
       type: "boolean",
-      description: "Whether to use the blacksmith to gain might (costs 1 gold + 3 ore)"
+      description: "Whether to use the blacksmith to gain might (costs 1 gold + 3 ore). Omit (or use false) if you don't have a blacksmith or don't want to use it."
     },
     sellAtMarket: {
       type: "object",
-      description: "Resources to sell at the market (2:1 ratio for gold). Amounts must not be negative.",
+      description: "Resources to sell at the market (2:1 ratio for gold). Amounts must not be negative. Omit this field entirely if you don't have a market or don't want to sell anything.",
       properties: {
         food: { type: "number" },
         wood: { type: "number" },
@@ -183,7 +183,7 @@ export const buildingUsageDecisionSchema = {
     },
     useFletcher: {
       type: "boolean",
-      description: "Whether to use the fletcher to gain might (costs 3 wood + 1 ore)"
+      description: "Whether to use the fletcher to gain might (costs 3 wood + 1 ore). Omit (or use false) if you don't have a fletcher or don't want to use it."
     }
   },
   additionalProperties: false
@@ -206,7 +206,7 @@ export const harvestDecisionSchema = {
     buildAction: {
       type: "string",
       enum: ["blacksmith", "market", "recruitChampion", "buildBoat", "chapel", "upgradeChapelToMonastery", "warshipUpgrade", "fletcher"],
-      description: "Type of build action to perform (construct building, recruit champion, etc.)"
+      description: "Type of build action to perform (construct building, recruit champion, etc.). Omit this field entirely if you don't want to (or can't afford to) perform a build action - only pick one of the affordable build actions listed in the prompt."
     },
     reasoning: {
       type: "string",

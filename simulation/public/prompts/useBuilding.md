@@ -34,6 +34,8 @@ Consider your current strategic situation and resource needs. Harvesting happens
 Building usage is resolved in this order: market first (selling resources for gold), then blacksmith, then fletcher. This means gold gained from market sales can immediately fund a blacksmith purchase in the same harvest phase. Plan your affordability accordingly - any building usage you cannot afford at its resolution point will fail (and be noted in the game log).
 
 You may use multiple buildings if you have them and can afford them, but you can only perform one build action per turn. It is also OK to not do anything and save resources for the future.
+
+{{foodTaxReminder}}
 </harvest-phase-decision-request>
 
 {{extraInstructions}}

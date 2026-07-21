@@ -26,7 +26,7 @@ export default function CheatSheet() {
                     <strong>Fate Phase</strong> <em>(Together)</em>
                     <ul className={styles.bulletList}>
                       <li>Rotate starting player token to next player</li>
-                      <li>Draw fate card (applies immediately, this round only; council votes are fame-weighted)</li>
+                      <li>Draw fate card (applies immediately, this round only; council votes are fame-weighted, cast secretly and revealed together)</li>
                     </ul>
                   </div>
                 </div>
@@ -191,9 +191,12 @@ export default function CheatSheet() {
               </ul>
               <div className={styles.supportNote}>Failure = knight gets eaten</div>
               <div className={styles.supportNote}>Success = +1 impression, take treasure (if any). Knight stays at Doomspire.</div>
-              <div className={styles.supportNote}>Must impress each round while at Doomspire, or be eaten. Max 1 per round.</div>
               <div className={styles.supportNote}>
-                Kicked out an opposing knight? Choose: face the dragon, or get a free dragon ride home.
+                Staying at Doomspire? Each following turn, at the end of your movement phase, impress again or be
+                eaten (no die needed). Max 1 impression per round.
+              </div>
+              <div className={styles.supportNote}>
+                Kicked out an opposing knight (won the fight, or they fled)? Choose: face the dragon, or get a free dragon ride home.
               </div>
             </section>
 

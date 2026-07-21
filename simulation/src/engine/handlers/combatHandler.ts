@@ -362,6 +362,7 @@ export interface CombatResult {
   combatOccurred: boolean;
   victory?: boolean;
   defeat?: boolean;
+  defenderFled?: boolean; // The defender fled successfully, so no combat took place
   combatDetails?: string;
 }
 
@@ -555,6 +556,7 @@ export async function resolveChampionVsChampionCombat(
       // Defender fled successfully, no combat occurs
       return {
         combatOccurred: false,
+        defenderFled: true,
         combatDetails: `${defendingPlayer.name}'s champion fled from combat with ${attackingPlayer.name}'s champion`
       };
     }

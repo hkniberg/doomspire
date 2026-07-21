@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import type { GameState } from "../game/GameState";
 import type { TokenUsageTracker } from "../lib/TokenUsageTracker";
 import { DEFAULT_CLAUDE_MODEL } from "../llm/claude";
-import type { CarriableItem, Champion, Player, Tile } from "../lib/types";
+import type { CarriableItem, Champion, Follower, Player, Tile } from "../lib/types";
+import { ENCOUNTERS } from "../content/encounterCards";
+import { GameSettings } from "../lib/GameSettings";
 import { ResourceDisplay } from "./ResourceDisplay";
-import { CardComponent, formatTraderContent } from "./cards/Card";
+import { CardComponent, formatEncounterContent, formatTraderContent } from "./cards/Card";
 
 // Function to get boat image path based on player index
 const getBoatImagePath = (playerIndex: number): string => {
@@ -174,6 +176,41 @@ export const PlayerInfoBox = ({
     );
   };
 
+  const renderFollowerCard = (follower: Follower, championId: number, index: number) => {
+    const encounterCard = ENCOUNTERS.find((e) => e.id === follower.id);
+    const content = encounterCard ? formatEncounterContent(encounterCard) : "";
+
+    return (
+      <div
+        key={`${championId}-follower-${follower.id}-${index}`}
+        style={{
+          height: "140px",
+          width: "100px",
+          overflow: "visible",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            transform: "scale(0.5)",
+            transformOrigin: "center",
+          }}
+          title={`Follower: ${follower.name}`}
+        >
+          <CardComponent
+            borderColor="#228B22"
+            name={follower.name}
+            imageUrl={`/encounters/${follower.id}.png`}
+            content={content}
+            bottomTag="Follower"
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <div
@@ -235,6 +272,16 @@ export const PlayerInfoBox = ({
             )}
             <div style={{ fontSize: "11px", color: "#6c757d" }}>
               Fame: {player.fame} | Might: {player.might}
+              {" | "}
+              <span
+                style={{
+                  fontWeight: player.dragonImpressions > 0 ? "bold" : "normal",
+                  color: player.dragonImpressions > 0 ? "#c0392b" : "#6c757d",
+                }}
+                title="Dragon impressions - the first player to reach the required number wins"
+              >
+                Impressions: {player.dragonImpressions}/{GameSettings.DRAGON_IMPRESSIONS_TO_WIN}
+              </span>
             </div>
           </div>
 
@@ -295,7 +342,7 @@ export const PlayerInfoBox = ({
                   ({champion.position.row},{champion.position.col})
                 </span>
               </div>
-              {champion.items.length > 0 && (
+              {(champion.items.length > 0 || champion.followers.length > 0) && (
                 <div
                   style={{
                     marginLeft: "20px",
@@ -304,9 +351,11 @@ export const PlayerInfoBox = ({
                     gap: "4px",
                     alignItems: "center",
                     overflow: "visible",
+                    flexWrap: "wrap",
                   }}
                 >
                   {champion.items.map((item, index) => renderItemCard(item, champion.id, index))}
+                  {champion.followers.map((follower, index) => renderFollowerCard(follower, champion.id, index))}
                 </div>
               )}
             </div>

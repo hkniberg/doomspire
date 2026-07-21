@@ -8,8 +8,10 @@ import { PlayerAgent } from "@/players/PlayerAgent";
  * Resolves the fate card drawn during the fate phase.
  *
  * Council votes are polled from each player agent, weighted by the voter's fame. A tie means no effect.
- * (Simulator deviation: votes are one-shot decisions with no table talk. If all players have 0 fame,
- * every vote weighs 0 and the result is always a tie / no effect.)
+ * Votes are secret and simultaneous: all votes are collected before any of them are revealed (logged),
+ * so no voter can see how the others voted. Players with 0 fame are skipped, since their vote weight
+ * is 0 and cannot affect the outcome. (Simulator deviation: votes are one-shot decisions with no table
+ * talk. If all players have 0 fame, the result is always a tie / no effect.)
  *
  * Round-scoped effects are stored in gameState.fateEffects and read by the relevant handlers.
  */
@@ -22,6 +24,7 @@ function rollD3(): number {
 }
 
 interface FateContext {
+  card: FateCard;
   gameState: GameState;
   playerAgents: PlayerAgent[];
   gameLog: readonly GameLogEntry[];
@@ -61,23 +64,51 @@ async function askDecision(
 }
 
 /**
+ * Build the description for a council vote prompt: full fate card text plus the question.
+ * Votes are secret and simultaneous, so the voter is told not to expect other players' votes.
+ */
+function buildVoteDescription(ctx: FateContext, question: string, voterFame: number): string {
+  const cardEffect = ctx.card.effect.replace(/\*/g, "");
+  return `Council vote on the fate card "${ctx.card.name}" (card effect: ${cardEffect}) ` +
+    `Question: ${question} Your vote is weighted by your fame (${voterFame}). ` +
+    `Votes are secret and cast simultaneously - you will not see how others voted until all votes are in.`;
+}
+
+/**
  * Council vote YES/NO, weighted by fame. Returns true if YES wins (tie = no).
+ *
+ * Votes are secret and simultaneous: all votes are collected before any are revealed (logged).
+ * Players with 0 fame are skipped since their vote weight cannot affect the outcome.
  */
 async function councilVoteYesNo(ctx: FateContext, question: string): Promise<boolean> {
-  let yesWeight = 0;
-  let noWeight = 0;
+  const votes: Array<{ player: Player; choice: string }> = [];
 
   for (const player of ctx.gameState.players) {
-    const choice = await askDecision(ctx, player.name, `Council vote: ${question} Your vote is weighted by your fame (${player.fame}).`, [
+    if (player.fame === 0) {
+      continue; // Vote weight 0 - can't affect the outcome, so don't prompt
+    }
+    const choice = await askDecision(ctx, player.name, buildVoteDescription(ctx, question, player.fame), [
       { id: "yes", description: "Vote YES" },
       { id: "no", description: "Vote NO" }
     ]);
-    if (choice === "yes") {
+    votes.push({ player, choice });
+  }
+
+  // All votes collected - now reveal them
+  let yesWeight = 0;
+  let noWeight = 0;
+  for (const player of ctx.gameState.players) {
+    const vote = votes.find((v) => v.player === player);
+    if (!vote) {
+      ctx.logFn("fate", `${player.name} abstains (0 fame, vote weight 0)`);
+      continue;
+    }
+    if (vote.choice === "yes") {
       yesWeight += player.fame;
     } else {
       noWeight += player.fame;
     }
-    ctx.logFn("fate", `${player.name} votes ${choice.toUpperCase()} (weight ${player.fame})`);
+    ctx.logFn("fate", `${player.name} votes ${vote.choice.toUpperCase()} (weight ${player.fame})`);
   }
 
   const yesWins = yesWeight > noWeight;
@@ -87,6 +118,9 @@ async function councilVoteYesNo(ctx: FateContext, question: string): Promise<boo
 
 /**
  * Council vote for a target player, weighted by fame. Returns the target, or null on a tie.
+ *
+ * Votes are secret and simultaneous: all votes are collected before any are revealed (logged).
+ * Players with 0 fame are skipped since their vote weight cannot affect the outcome.
  */
 async function councilVoteTarget(ctx: FateContext, question: string): Promise<Player | null> {
   const weights: Record<string, number> = {};
@@ -94,14 +128,28 @@ async function councilVoteTarget(ctx: FateContext, question: string): Promise<Pl
     weights[player.name] = 0;
   }
 
+  const votes: Array<{ player: Player; choice: string }> = [];
   for (const player of ctx.gameState.players) {
+    if (player.fame === 0) {
+      continue; // Vote weight 0 - can't affect the outcome, so don't prompt
+    }
     const options: DecisionOption[] = ctx.gameState.players.map((p) => ({
       id: p.name,
       description: `Vote for ${p.name}`
     }));
-    const choice = await askDecision(ctx, player.name, `Council vote: ${question} Your vote is weighted by your fame (${player.fame}).`, options);
-    weights[choice] += player.fame;
-    ctx.logFn("fate", `${player.name} votes for ${choice} (weight ${player.fame})`);
+    const choice = await askDecision(ctx, player.name, buildVoteDescription(ctx, question, player.fame), options);
+    votes.push({ player, choice });
+  }
+
+  // All votes collected - now reveal them
+  for (const player of ctx.gameState.players) {
+    const vote = votes.find((v) => v.player === player);
+    if (!vote) {
+      ctx.logFn("fate", `${player.name} abstains (0 fame, vote weight 0)`);
+      continue;
+    }
+    weights[vote.choice] += player.fame;
+    ctx.logFn("fate", `${player.name} votes for ${vote.choice} (weight ${player.fame})`);
   }
 
   const maxWeight = Math.max(...Object.values(weights));
@@ -201,11 +249,12 @@ export async function resolveFateCard(
   logFn: LogFn,
   thinkingLogger?: (content: string) => void
 ): Promise<void> {
-  const ctx: FateContext = { gameState, playerAgents, gameLog, logFn, thinkingLogger };
+  const ctx: FateContext = { card, gameState, playerAgents, gameLog, logFn, thinkingLogger };
   const players = gameState.players;
 
   gameState.fateEffects.fateCardId = card.id;
   gameState.fateEffects.fateCardName = card.name;
+  gameState.fateEffects.fateCardEffect = card.effect.replace(/\*/g, "");
 
   switch (card.id) {
     // ============ Event cards ============

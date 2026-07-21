@@ -14,6 +14,7 @@ import {
 export interface ChampionCombatResult {
   combatOccurred: boolean;
   attackerWon?: boolean;
+  defenderFled?: boolean; // The defender fled successfully, so no combat took place
 }
 
 export interface MonsterCombatResult {
@@ -122,7 +123,7 @@ export async function handleChampionCombat(
   );
 
   if (!combatResult.combatOccurred) {
-    return { combatOccurred: false };
+    return { combatOccurred: false, defenderFled: combatResult.defenderFled };
   }
 
   if (combatResult.victory) {

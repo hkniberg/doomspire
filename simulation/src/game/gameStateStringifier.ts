@@ -126,7 +126,8 @@ function formatGameSession(gameState: GameState): string {
 - Current round: ${gameState.currentRound}
 - Current player: ${currentPlayer.name}`];
   if (gameState.fateEffects.fateCardName) {
-    lines.push(`- Fate card this round: ${gameState.fateEffects.fateCardName}`);
+    const effectText = gameState.fateEffects.fateCardEffect ? ` - ${gameState.fateEffects.fateCardEffect}` : "";
+    lines.push(`- Fate card this round: ${gameState.fateEffects.fateCardName}${effectText}`);
   }
   return lines.join("\n");
 }

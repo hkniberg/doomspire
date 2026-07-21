@@ -2,6 +2,7 @@ import { TokenUsageTracker } from "@/lib/TokenUsageTracker";
 import { Anthropic } from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 import pRetry, { AbortError } from "p-retry";
+import { extractLastJsonObject } from "./jsonExtraction";
 
 /**
  * Selectable Claude model families for AI players.
@@ -180,16 +181,23 @@ export class Claude {
         } catch (parseError) {
           console.log("Claude response text content couldn't be parsed", JSON.stringify(textContent, null, 2));
 
-          // Try to extract and repair JSON
+          // Try to extract and repair JSON. If the model self-corrected mid-response,
+          // the text may contain several JSON objects - the last balanced one is the
+          // final answer. Fall back to first-{ / last-} extraction only if no balanced
+          // object exists (e.g. the response was truncated mid-object).
+          const lastBalancedObject = extractLastJsonObject(textContent);
           const jsonStartIndex = textContent.indexOf("{");
           const jsonEndIndex = textContent.lastIndexOf("}") + 1;
+          const jsonContent = lastBalancedObject
+            ?? (jsonStartIndex !== -1 && jsonEndIndex > jsonStartIndex
+              ? textContent.substring(jsonStartIndex, jsonEndIndex)
+              : null);
 
-          if (jsonStartIndex === -1 || jsonEndIndex === 0 || jsonEndIndex <= jsonStartIndex) {
+          if (jsonContent === null) {
             throw new Error("Unable to find valid JSON markers in Claude's response");
           }
 
           try {
-            const jsonContent = textContent.substring(jsonStartIndex, jsonEndIndex);
             const parsedResponse = JSON.parse(jsonrepair(jsonContent));
             console.warn("Warning: Had to trim Claude's response to extract valid JSON");
             log("Trimmed and Parsed Response", parsedResponse);

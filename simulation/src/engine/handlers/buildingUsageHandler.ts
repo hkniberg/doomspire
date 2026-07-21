@@ -61,14 +61,17 @@ export function handleBuildingUsage(
   if (buildingDecision.buildingUsageDecision) {
     const usageDecision = buildingDecision.buildingUsageDecision;
 
-    // Process market usage
-    if (usageDecision.sellAtMarket) {
-      if (hasMarket && Object.values(usageDecision.sellAtMarket).some(amount => amount > 0)) {
+    // Process market usage. An all-zero sellAtMarket object is treated as "not using the
+    // market" (a no-op, not a failure) - AI players often fill in the optional field with zeros.
+    const wantsToSell = usageDecision.sellAtMarket !== undefined
+      && Object.values(usageDecision.sellAtMarket).some(amount => amount > 0);
+    if (wantsToSell) {
+      if (hasMarket) {
         // The market sells resources at 2:1 for gold. Different resource types can be POOLED:
         // e.g. selling 3 food and 1 wood yields 2 gold. Only the converted resources are deducted;
         // an odd leftover resource is kept by the player.
         const offered: Array<{ type: ResourceType; amount: number }> = [];
-        for (const [resourceType, amount] of Object.entries(usageDecision.sellAtMarket)) {
+        for (const [resourceType, amount] of Object.entries(usageDecision.sellAtMarket!)) {
           if (amount > 0 && resourceType !== "gold") {
             const resourceKey = resourceType as ResourceType;
             const actualAmount = Math.min(amount, player.resources[resourceKey]);
@@ -111,7 +114,7 @@ export function handleBuildingUsage(
       } else {
         result.failedActions.push({
           action: "market",
-          reason: hasMarket ? "No resources to sell" : "No market building"
+          reason: "No market building"
         });
       }
     }

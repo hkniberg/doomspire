@@ -117,7 +117,9 @@ function handleChampionRecruitment(
     };
   }
 
-  const championId = currentChampionCount + 1; // Next champion ID (starting champion has id 1)
+  // Use max existing id + 1, not count + 1: a champion may have died (eaten by the dragon),
+  // and count-based ids would then collide with a surviving champion's id
+  const championId = Math.max(0, ...player.champions.map(c => c.id)) + 1;
 
   // Check if player can afford the champion
   if (!canAfford(player, cost)) {

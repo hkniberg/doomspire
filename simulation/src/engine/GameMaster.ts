@@ -9,7 +9,7 @@
 // executeTurn() executes one player's move phase. The fate + roll phases run automatically before the
 // first player's move phase of the round, and the harvest phase runs after the last player's move phase.
 
-import { BoatAction, ChampionAction, HarvestDecision, TileAction } from "@/lib/actionTypes";
+import { BoatAction, ChampionAction, DiceAction, HarvestDecision, TileAction } from "@/lib/actionTypes";
 import { GameLogEntry, GameLogEntryType, GamePhase, Player, Position, Tile, TurnContext } from "@/lib/types";
 import { formatPosition, formatResources } from "@/lib/utils";
 import { FATE_CARDS, FIRST_FATE_CARD_ID, FateCard } from "@/content/fateCards";
@@ -17,6 +17,7 @@ import { GameState } from "../game/GameState";
 import { stringifyTileForGameLog } from "../game/gameStateStringifier";
 import { CARDS, GameDecks } from "../lib/cards";
 import { PlayerAgent } from "../players/PlayerAgent";
+import { RandomPlayerAgent } from "../players/RandomPlayerAgent";
 import { calculateHarvest, getEligibleHarvestTiles } from "./actions/harvestCalculator";
 import { calculateBoatMove, calculateChampionMove } from "./actions/moveCalculator";
 import { DiceRoller, RandomDiceRoller } from "./DiceRoller";
@@ -266,12 +267,6 @@ export class GameMaster {
 
     const thinkingLogger = (content: string) => this.addGameLogEntry("thinking", content);
 
-    // A knight staying at Doomspire must impress the dragon each round or be eaten
-    await this.handleDoomspireStayCheck(currentPlayer, currentPlayerAgent, thinkingLogger);
-    if (this.masterState !== "playing") {
-      return;
-    }
-
     // Strategic assessment (with dice context)
     try {
       if (currentPlayerAgent.makeStrategicAssessment) {
@@ -298,54 +293,14 @@ export class GameMaster {
 
     // Execute dice actions until the player runs out of dice
     while (diceRolls.hasRemainingRolls()) {
-      const turnContext: TurnContext = {
-        turnNumber: this.gameState.currentRound,
-        diceRolled: diceRolls.getRemainingRolls(),
-        remainingDiceValues: diceRolls.getRemainingRolls(),
-      };
+      const actionSucceeded = await this.executeOneDiceAction(currentPlayer, currentPlayerAgent, diceRolls, thinkingLogger);
 
-      try {
-        const diceAction = await currentPlayerAgent.decideDiceAction(this.gameState, this.gameLog, turnContext, thinkingLogger);
-
-        const actionType = diceAction.actionType;
-        if (actionType == "championAction") {
-          const championAction = diceAction.championAction!;
-          const diceValues = championAction.diceValuesUsed && championAction.diceValuesUsed.length > 0
-            ? championAction.diceValuesUsed
-            : [championAction.diceValueUsed];
-          diceRolls.consumeMultipleDiceRolls(diceValues);
-          await this.executeChampionAction(currentPlayer, championAction, diceValues, diceAction.reasoning);
-          if (currentPlayer.statistics) {
-            currentPlayer.statistics.championActions += 1;
-          }
-        } else if (actionType === "boatAction") {
-          const boatAction = diceAction.boatAction!;
-          diceRolls.consumeDiceRoll(boatAction.diceValueUsed);
-          await this.executeBoatAction(currentPlayer, boatAction, diceAction.reasoning);
-          if (currentPlayer.statistics) {
-            currentPlayer.statistics.boatActions += 1;
-          }
-        } else if (actionType === "harvestAction") {
-          // The dice are saved now; which tiles to harvest is decided during the harvest phase
-          const harvestAction = diceAction.harvestAction!;
-          diceRolls.consumeMultipleDiceRolls(harvestAction.diceValuesUsed);
-          const savedDice = this.savedHarvestDice.get(currentPlayer.name) || [];
-          savedDice.push(...harvestAction.diceValuesUsed);
-          this.savedHarvestDice.set(currentPlayer.name, savedDice);
-          const diceString = harvestAction.diceValuesUsed.map(die => `[${die}]`).join("+");
-          this.addGameLogEntry("harvest", `Saved dice ${diceString} for the harvest phase.${diceAction.reasoning ? ` Reason: ${diceAction.reasoning}.` : ""}`);
-        } else {
-          throw new Error(`Unknown action type: ${actionType}`);
-        }
-      } catch (error) {
-        console.error("Error during dice action execution:", error);
-        this.addGameLogEntry("error", `Dice action failed: ${error instanceof Error ? error.message : String(error)}`);
-
-        // Consume a die to prevent infinite loops, but don't execute any action
+      if (!actionSucceeded) {
+        // Last resort: consume a die to guarantee progress (should be rare - even the random fallback failed)
         const remainingRolls = diceRolls.getRemainingRolls();
         if (remainingRolls.length > 0) {
           diceRolls.consumeDiceRoll(remainingRolls[0]);
-          this.addGameLogEntry("dice", `Consumed die [${remainingRolls[0]}] due to action failure`);
+          this.addGameLogEntry("dice", `Consumed die [${remainingRolls[0]}] because no action could be executed`);
         }
       }
 
@@ -358,11 +313,236 @@ export class GameMaster {
         return;
       }
     }
+
+    // A knight still camped at Doomspire at the end of the owner's move turn must impress
+    // the dragon again or be eaten (checked at the end so the owner can evacuate the knight
+    // or repair the impression condition with their dice first)
+    await this.handleDoomspireStayCheck(currentPlayer, currentPlayerAgent, thinkingLogger);
+    if (this.masterState !== "playing") {
+      return;
+    }
+
+    // Post-move-phase state validation: enemy knights should never remain co-located on a combat tile
+    this.validateNoUnresolvedCombat(currentPlayer);
+  }
+
+  /**
+   * Ask the player for one dice action and execute it.
+   *
+   * The player's agent gets up to two attempts (the second one is told why the first action
+   * was rejected). Invalid actions are rejected before any dice are consumed, so a rejection
+   * has no side effects. If both attempts fail (or the agent itself fails, e.g. an AI API
+   * outage), a random legal action is played instead of burning the player's die.
+   *
+   * Returns true if an action consumed dice (even if its execution then partially failed),
+   * false if no action could be performed at all.
+   */
+  private async executeOneDiceAction(
+    player: Player,
+    playerAgent: PlayerAgent,
+    diceRolls: DiceRolls,
+    thinkingLogger: (content: string) => void
+  ): Promise<boolean> {
+    let previousError: string | undefined;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const turnContext: TurnContext = {
+        turnNumber: this.gameState.currentRound,
+        diceRolled: diceRolls.getRemainingRolls(),
+        remainingDiceValues: diceRolls.getRemainingRolls(),
+        previousError: previousError,
+      };
+
+      let diceAction: DiceAction;
+      try {
+        diceAction = await playerAgent.decideDiceAction(this.gameState, this.gameLog, turnContext, thinkingLogger);
+      } catch (error) {
+        // The agent itself failed (e.g. AI API outage, already retried internally).
+        // Re-prompting is unlikely to help, so go straight to the random fallback.
+        console.error("Error during dice action decision:", error);
+        this.addGameLogEntry("error", `Dice action decision failed: ${error instanceof Error ? error.message : String(error)}`);
+        break;
+      }
+
+      // Validate before consuming any dice, so an invalid action can be rejected without side effects
+      let diceValues: number[];
+      try {
+        diceValues = this.validateDiceAction(player, diceAction, diceRolls);
+      } catch (error) {
+        previousError = error instanceof Error ? error.message : String(error);
+        console.error("Invalid dice action:", error);
+        this.addGameLogEntry(
+          "error",
+          `Dice action rejected: ${previousError}${attempt === 0 ? " (asking for a new action)" : ""}`
+        );
+        continue;
+      }
+
+      try {
+        await this.executeDiceAction(player, diceAction, diceValues, diceRolls);
+      } catch (error) {
+        // The dice are already consumed and the action may be partially applied,
+        // so don't retry - just log the failure and move on.
+        console.error("Error during dice action execution:", error);
+        this.addGameLogEntry("error", `Dice action failed during execution: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return true;
+    }
+
+    // Fallback: play a random legal action rather than burning the player's die.
+    // A single random draw can be invalid too (e.g. a knight move while under Lockdown),
+    // so try a few draws before giving up.
+    this.addGameLogEntry("system", `Falling back to a random action for ${player.name}.`);
+    const fallbackAgent = new RandomPlayerAgent(player.name);
+    let lastError: unknown;
+    for (let fallbackAttempt = 0; fallbackAttempt < 5; fallbackAttempt++) {
+      try {
+        const turnContext: TurnContext = {
+          turnNumber: this.gameState.currentRound,
+          diceRolled: diceRolls.getRemainingRolls(),
+          remainingDiceValues: diceRolls.getRemainingRolls(),
+        };
+        const diceAction = await fallbackAgent.decideDiceAction(this.gameState, this.gameLog, turnContext, thinkingLogger);
+        const diceValues = this.validateDiceAction(player, diceAction, diceRolls);
+        await this.executeDiceAction(player, diceAction, diceValues, diceRolls);
+        return true;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    console.error("Error during fallback dice action:", lastError);
+    this.addGameLogEntry("error", `Fallback dice action failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+    return false;
+  }
+
+  /**
+   * Validate a dice action against the current game state without applying any changes.
+   * Returns the dice values the action will consume. Throws if the action is invalid.
+   */
+  private validateDiceAction(player: Player, diceAction: DiceAction, diceRolls: DiceRolls): number[] {
+    // Check that the requested dice values are actually available (as a multiset)
+    const checkDiceAvailable = (diceValues: number[]): void => {
+      const remaining = [...diceRolls.getRemainingRolls()];
+      for (const diceValue of diceValues) {
+        const index = remaining.indexOf(diceValue);
+        if (index === -1) {
+          throw new Error(`Dice value ${diceValue} not found in remaining dice [${diceRolls.getRemainingRolls().join(", ")}]`);
+        }
+        remaining.splice(index, 1);
+      }
+    };
+
+    if (diceAction.actionType === "championAction") {
+      const championAction = diceAction.championAction;
+      if (!championAction) {
+        throw new Error("championAction payload is missing");
+      }
+      const diceValues = championAction.diceValuesUsed && championAction.diceValuesUsed.length > 0
+        ? championAction.diceValuesUsed
+        : [championAction.diceValueUsed];
+      checkDiceAvailable(diceValues);
+
+      const champion = this.gameState.getChampion(player.name, championAction.championId);
+      if (!champion) {
+        const availableIds = player.champions.map(c => `champion${c.id}`).join(", ") || "none";
+        throw new Error(`Champion ${championAction.championId} not found for player ${player.name} (available: ${availableIds})`);
+      }
+      if (champion.hasInteractedThisRound) {
+        throw new Error(`Champion ${championAction.championId} has already interacted with a tile and cannot use more action dice this round`);
+      }
+
+      const isMoving = !!(championAction.movementPathIncludingStartPosition && championAction.movementPathIncludingStartPosition.length > 1);
+      if (isMoving && this.gameState.fateEffects.lockdownPlayer === player.name) {
+        throw new Error(`${player.name} is under Lockdown and cannot move knights this round`);
+      }
+      return diceValues;
+    }
+
+    if (diceAction.actionType === "boatAction") {
+      const boatAction = diceAction.boatAction;
+      if (!boatAction) {
+        throw new Error("boatAction payload is missing");
+      }
+      checkDiceAvailable([boatAction.diceValueUsed]);
+
+      const boat = player.boats.find(b => b.id === boatAction.boatId);
+      if (!boat) {
+        throw new Error(`Boat ${boatAction.boatId} not found for player ${player.name}`);
+      }
+      return [boatAction.diceValueUsed];
+    }
+
+    if (diceAction.actionType === "harvestAction") {
+      const harvestAction = diceAction.harvestAction;
+      if (!harvestAction) {
+        throw new Error("harvestAction payload is missing");
+      }
+      checkDiceAvailable(harvestAction.diceValuesUsed);
+      return harvestAction.diceValuesUsed;
+    }
+
+    throw new Error(`Unknown action type: ${diceAction.actionType}`);
+  }
+
+  /**
+   * Consume the dice for a validated action and execute it.
+   */
+  private async executeDiceAction(player: Player, diceAction: DiceAction, diceValues: number[], diceRolls: DiceRolls): Promise<void> {
+    diceRolls.consumeMultipleDiceRolls(diceValues);
+
+    if (diceAction.actionType === "championAction") {
+      await this.executeChampionAction(player, diceAction.championAction!, diceValues, diceAction.reasoning);
+      if (player.statistics) {
+        player.statistics.championActions += 1;
+      }
+    } else if (diceAction.actionType === "boatAction") {
+      await this.executeBoatAction(player, diceAction.boatAction!, diceAction.reasoning);
+      if (player.statistics) {
+        player.statistics.boatActions += 1;
+      }
+    } else if (diceAction.actionType === "harvestAction") {
+      // The dice are saved now; which tiles to harvest is decided during the harvest phase
+      const savedDice = this.savedHarvestDice.get(player.name) || [];
+      savedDice.push(...diceValues);
+      this.savedHarvestDice.set(player.name, savedDice);
+      const diceString = diceValues.map(die => `[${die}]`).join("+");
+      this.addGameLogEntry("harvest", `Saved dice ${diceString} for the harvest phase.${diceAction.reasoning ? ` Reason: ${diceAction.reasoning}.` : ""}`);
+    }
+  }
+
+  /**
+   * Safety net: enemy knights sharing a combat-eligible tile should be impossible after a
+   * move phase (combat resolves on arrival). Log loudly if it happens anyway, so state bugs
+   * from interrupted combat resolution are visible instead of silently corrupting the match.
+   */
+  private validateNoUnresolvedCombat(player: Player): void {
+    // During Ceasefire, PVP combat is skipped by design and knights may legally share a tile
+    if (this.gameState.fateEffects.noPvpCombat) {
+      return;
+    }
+    for (const champion of player.champions) {
+      const tile = this.gameState.getTile(champion.position);
+      if (!tile || (tile.tileType && NON_COMBAT_TILES.includes(tile.tileType))) {
+        continue;
+      }
+      const opposingChampions = this.gameState.getOpposingChampionsAtPosition(player.name, champion.position);
+      if (opposingChampions.length > 0) {
+        const opponents = opposingChampions.map(c => `${c.playerName}'s champion${c.id}`).join(", ");
+        this.addGameLogEntry(
+          "error",
+          `STATE WARNING: Champion${champion.id} shares tile ${formatPosition(champion.position)} with ${opponents} but combat was never resolved. Possible engine bug (e.g. combat interrupted by an error), or a leftover from a Ceasefire round.`
+        );
+      }
+    }
   }
 
   /**
    * A knight staying at Doomspire must impress the dragon each round or be eaten.
-   * Checked at the start of the player's move phase.
+   * Checked at the end of the player's move phase, so the owner can evacuate the knight
+   * or repair the impression condition with their dice first. Knights that already faced
+   * the dragon this round (by entering or interacting with Doomspire) are skipped, and a
+   * player who already impressed the dragon this round is skipped inside the encounter
+   * (the dragon dozes).
    */
   private async handleDoomspireStayCheck(
     player: Player,
@@ -380,6 +560,12 @@ export class GameMaster {
     for (const champion of champions) {
       const tile = this.gameState.getTile(champion.position);
       if (!tile || tile.tileType !== "doomspire" || !tile.explored) {
+        continue;
+      }
+
+      // A knight that already faced the dragon this round (entered or interacted with
+      // Doomspire during this move phase) is not checked again
+      if (champion.hasInteractedThisRound) {
         continue;
       }
 
@@ -841,13 +1027,16 @@ export class GameMaster {
         // Attacker lost, defeat effects already applied by combat handler
         return;
       }
+    }
 
-      // After winning PVP at Doomspire, the winner may choose a free ride home instead of facing the dragon
-      if (tile.tileType === "doomspire") {
-        const rideHome = await this.offerDragonRideHome(player, championId, logFn, thinkingLogger);
-        if (rideHome) {
-          return;
-        }
+    // After driving off an opposing knight at Doomspire (by winning PVP or making it flee),
+    // the knight may choose a free ride home instead of facing the dragon
+    if (tile.tileType === "doomspire" &&
+      ((championCombatResult.combatOccurred && championCombatResult.attackerWon) || championCombatResult.defenderFled)) {
+      const rideHome = await this.offerDragonRideHome(player, championId, championCombatResult.defenderFled === true, logFn, thinkingLogger);
+      if (rideHome) {
+        markInteracted();
+        return;
       }
     }
 
@@ -1058,12 +1247,14 @@ export class GameMaster {
   }
 
   /**
-   * After winning a PVP fight at Doomspire, the winner may accept a free ride home
-   * from the grateful dragon instead of facing it. Returns true if the ride was taken.
+   * After driving off an opposing knight at Doomspire (by winning PVP combat, or because the
+   * defender fled), the knight may accept a free ride home from the grateful dragon instead
+   * of facing it. Returns true if the ride was taken.
    */
   private async offerDragonRideHome(
     player: Player,
     championId: number,
+    defenderFled: boolean,
     logFn: (type: string, content: string) => void,
     thinkingLogger?: (content: string) => void
   ): Promise<boolean> {
@@ -1071,7 +1262,7 @@ export class GameMaster {
 
     try {
       const decision = await playerAgent.makeDecision(this.gameState, this.gameLog, {
-        description: `You defeated the opposing knight at Doomspire! The dragon is delighted. Choose: face the dragon as usual, or accept a free ride home (no impression attempt, no risk).`,
+        description: `${defenderFled ? "The opposing knight fled from your attack at Doomspire" : "You defeated the opposing knight at Doomspire"}! The dragon is delighted that the pesky knight is gone. Choose: face the dragon as usual, or accept a free ride home (no impression attempt, no risk).`,
         options: [
           { id: "face_dragon", description: "Face the dragon (impress it or be eaten)" },
           { id: "ride_home", description: "Accept the free ride home (no risk, no impression)" }

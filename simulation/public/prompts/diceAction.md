@@ -12,6 +12,8 @@ You are player {{playerName}}.
 
 <turn-context>
 It is currently turn {{turnNumber}} and it is your turn as {{playerName}}. Your remaining dice values are: {{remainingDice}}.
+
+{{foodTaxReminder}}
 </turn-context>
 
 <dice-action-request>
@@ -32,5 +34,5 @@ Important restrictions:
 
 Make sure your action is legal according to the game rules and the current board state.
 </dice-action-request>
-
+{{previousError}}
 {{extraInstructions}}

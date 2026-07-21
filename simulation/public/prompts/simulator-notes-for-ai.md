@@ -28,8 +28,9 @@ involves free-form negotiation and table talk that the simulator does not suppor
 
 ## Simulator interpretations of rules gaps
 
-- **Council votes with zero fame**: votes are weighted by fame, so if all voters have 0 fame, the vote
-  always ties and has no effect.
+- **Council votes with zero fame**: votes are weighted by fame; players with 0 fame are not prompted
+  to vote (they abstain automatically, since their vote weight is 0). If all voters have 0 fame, the
+  vote always ties and has no effect.
 - **Fate card resource distributions** (for example Tax the Crown): where the rules let a player choose
   how to distribute a payment, the simulator distributes it automatically (round-robin among the other
   players). Land Reform's recipient is the player with the fewest resource tiles.
