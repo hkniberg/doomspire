@@ -1,4 +1,5 @@
 import { GameState } from "../game/GameState";
+import type { TokenUsageTracker } from "../lib/TokenUsageTracker";
 import type { Champion, Tile } from "../lib/types";
 import ArrowPath from "./ArrowPath";
 import { OceanZoneComponent, oceanZones } from "./OceanZone";
@@ -8,7 +9,6 @@ import { TileComponent } from "./Tile";
 interface HumanPlayerState {
   selectedChampionId: number | null;
   championMovementPath: { row: number; col: number }[];
-  selectedHarvestTiles?: { row: number; col: number }[];
   onChampionSelect: (championId: number) => void;
   onTileClick: (row: number, col: number) => void;
   hasSelectedDie: boolean;
@@ -18,7 +18,8 @@ interface GameBoardProps {
   gameState: GameState;
   debugMode?: boolean;
   allowDragging?: boolean;
-  playerConfigs?: { name: string; type: string }[]; // Player configurations to determine types
+  playerConfigs?: { name: string; type: string; model?: string }[]; // Player configurations to determine types (and model for claude players)
+  claudeTokenTrackers?: Record<string, TokenUsageTracker>; // Per-player token usage trackers for Claude players, keyed by player name
   onExtraInstructionsChange?: (playerName: string, instructions: string) => void; // Callback for updating extra instructions
   onGameStateUpdate?: (newGameState: GameState) => void; // Callback for updating game state
   humanPlayerState?: HumanPlayerState; // Human player interaction state
@@ -48,6 +49,7 @@ export const GameBoard = ({
   debugMode = false,
   allowDragging = false,
   playerConfigs,
+  claudeTokenTrackers,
   onExtraInstructionsChange,
   onGameStateUpdate,
   humanPlayerState,
@@ -125,6 +127,8 @@ export const GameBoard = ({
               isCurrentPlayer={isCurrentPlayer}
               claimedTiles={claimedTiles}
               playerType={playerType}
+              claudeModel={playerType === "claude" ? playerConfig?.model : undefined}
+              tokenUsageTracker={claudeTokenTrackers?.[player.name]}
               onExtraInstructionsChange={onExtraInstructionsChange}
               gameState={gameState}
               getPlayerColor={getPlayerColorWithState}

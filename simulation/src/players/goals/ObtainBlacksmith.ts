@@ -3,12 +3,13 @@
 
 import { getTraderItemById } from "@/content/traderItems";
 import { GameState } from "@/game/GameState";
-import { BuildingDecision, DiceAction, TileAction } from "@/lib/actionTypes";
+import { DiceAction, HarvestDecision, TileAction } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { GameSettings } from "@/lib/GameSettings";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
-import { AdventureThemeType, Decision, DecisionContext, GameLogEntry, Player, PlayerType, TurnContext } from "@/lib/types";
+import { Decision, DecisionContext, GameLogEntry, Player, PlayerType, TurnContext } from "@/lib/types";
 import { canAfford } from "../PlayerUtils";
+import { chooseBestHarvestTiles } from "../RandomPlayerUtils";
 import { Goal } from "./Goal";
 
 export class ObtainBlacksmith implements Goal {
@@ -32,7 +33,6 @@ export class ObtainBlacksmith implements Goal {
     diceValues: number[],
     turnNumber: number,
     traderItems: readonly TraderCard[],
-    adventureDeckThemes: [AdventureThemeType, AdventureThemeType, AdventureThemeType],
     thinkingLogger?: (content: string) => void,
   ): Promise<string | undefined> {
     return `Goal: Obtain Blacksmith. Need ${GameSettings.BLACKSMITH_COST.food} food, ${GameSettings.BLACKSMITH_COST.ore} ore.`;
@@ -141,18 +141,21 @@ export class ObtainBlacksmith implements Goal {
     return { actions: actions };
   }
 
-  async useBuilding(
+  async makeHarvestDecision(
     gameState: GameState,
     gameLog: readonly GameLogEntry[],
     playerName: string,
+    savedDiceValues: number[],
     thinkingLogger?: (content: string) => void,
-  ): Promise<BuildingDecision> {
+  ): Promise<HarvestDecision> {
     const player = gameState.getPlayer(playerName);
     if (!player) {
       throw new Error(`Player with name ${playerName} not found`);
     }
 
-    const result: BuildingDecision = {};
+    const result: HarvestDecision = {
+      harvestTiles: chooseBestHarvestTiles(gameState, playerName, savedDiceValues),
+    };
 
     // Priority: build blacksmith if we can afford it!
     if (canAfford(player, GameSettings.BLACKSMITH_COST) && !player.buildings.includes("blacksmith")) {
@@ -239,12 +242,11 @@ export class ObtainBlacksmith implements Goal {
     const player = gameState.getPlayer(playerName);
     if (!player) return null;
 
-    // Simple harvest from home position
+    // Save the die for the harvest phase (tile choice happens then)
     return {
       actionType: "harvestAction",
       harvestAction: {
         diceValuesUsed: [dieValue],
-        tilePositions: [player.homePosition],
       },
     };
   }

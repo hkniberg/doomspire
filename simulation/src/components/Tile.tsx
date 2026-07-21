@@ -11,7 +11,6 @@ import { TileCardModal } from "./TileCardModal";
 interface HumanPlayerState {
   selectedChampionId: number | null;
   championMovementPath: { row: number; col: number }[];
-  selectedHarvestTiles?: { row: number; col: number }[];
   onChampionSelect: (championId: number) => void;
   onTileClick: (row: number, col: number) => void;
   hasSelectedDie: boolean;
@@ -243,15 +242,7 @@ export const TileComponent = ({
 
   const specialLabel = getSpecialLocationLabel(effectiveTile);
 
-  // Check if this tile is selected for harvest
-  const isSelectedForHarvest = humanPlayerState?.selectedHarvestTiles?.some(
-    (pos) => pos.row === tile.position.row && pos.col === tile.position.col,
-  );
-
-  // Determine border color - use tile's borderColor, or highlight if selected for harvest
-  const borderColor = isSelectedForHarvest
-    ? "#f39c12" // Orange for selected harvest tiles
-    : effectiveTile.borderColor;
+  const borderColor = effectiveTile.borderColor;
 
   // Check if there are cards (monster or items) to show in modal
   const hasCards = effectiveTile.monster || (effectiveTile.items && effectiveTile.items.length > 0);
@@ -302,7 +293,7 @@ export const TileComponent = ({
         fontSize: "24px",
         fontWeight: "bold",
         color: effectiveTile.explored ? "#000" : "#fff",
-        border: isSelectedForHarvest ? `4px solid ${borderColor}` : `2px solid ${borderColor}`,
+        border: `2px solid ${borderColor}`,
         borderRadius: "8px",
         cursor: "pointer",
         transition: "transform 0.1s",
@@ -434,11 +425,11 @@ ${effectiveTile.claimedBy ? `Claimed by Player ${effectiveTile.claimedBy}${isBlo
         </div>
       )}
 
-      {/* Dragon impression counter for doomspire */}
+      {/* Dragon treasure hoard stacks for doomspire */}
       {effectiveTile.tileType === "doomspire" &&
         effectiveTile.explored &&
-        effectiveTile.impressionCounter !== undefined &&
-        effectiveTile.impressionCounter > 0 && (
+        effectiveTile.treasureStacks !== undefined &&
+        effectiveTile.treasureStacks.length > 0 && (
           <div
             style={{
               position: "absolute",
@@ -450,7 +441,7 @@ ${effectiveTile.claimedBy ? `Claimed by Player ${effectiveTile.claimedBy}${isBlo
               zIndex: 6,
             }}
           >
-            {Array.from({ length: effectiveTile.impressionCounter }, (_, index) => (
+            {effectiveTile.treasureStacks.map((stack, index) => (
               <div
                 key={index}
                 style={{
@@ -467,9 +458,9 @@ ${effectiveTile.claimedBy ? `Claimed by Player ${effectiveTile.claimedBy}${isBlo
                   boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
                   color: "#000",
                 }}
-                title={`Dragon impressed ${effectiveTile.impressionCounter} time(s)`}
+                title={`Treasure stack: ${Object.entries(stack).filter(([, amount]) => amount > 0).map(([type, amount]) => `${amount} ${type}`).join(", ")}`}
               >
-                👑
+                💰
               </div>
             ))}
           </div>

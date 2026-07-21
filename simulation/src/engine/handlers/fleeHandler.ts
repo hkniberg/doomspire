@@ -1,25 +1,25 @@
 import { GameState } from "@/game/GameState";
-import { GameSettings } from "@/lib/GameSettings";
-import { DecisionContext, GameLogEntry, Player, Position, ResourceType, Tile } from "@/lib/types";
+import { CarriableItem, DecisionContext, DecisionOption, GameLogEntry, Player, Position, ResourceType, Tile } from "@/lib/types";
 import { formatResources } from "@/lib/utils";
 import { PlayerAgent } from "@/players/PlayerAgent";
+import { canChampionCarryMoreItems, getItemSlotSize } from "@/players/PlayerUtils";
 
 export interface FleeContext {
-  combatType: 'champion' | 'monster' | 'dragon';
-  isActivelyChosen: boolean;
+  combatType: 'champion' | 'monster';
+  canFlee: boolean; // Monster combat: always true. Champion combat: only the defender may flee.
   gameState: GameState;
   player: Player;
   championId: number;
   tile: Tile;
-  opponentName?: string; // For champion combat
+  // For champion combat: the attacker receives the resource/item on a partial flee
+  attackerPlayer?: Player;
+  attackerChampionId?: number;
 }
 
 export interface FleeResult {
   attemptedFlee: boolean;
   fleeSuccessful?: boolean;
   destination?: Position;
-  fameLoss?: number;
-  resourceLoss?: string;
   reasoning?: string;
 }
 
@@ -29,14 +29,6 @@ export interface FleeResult {
 function rollD3(): number {
   const outcomes = [1, 1, 2, 2, 3, 3];
   return outcomes[Math.floor(Math.random() * outcomes.length)];
-}
-
-/**
- * Check if a player can attempt to flee from combat
- */
-export function canPlayerFlee(context: FleeContext): boolean {
-  // Players who actively chose to fight cannot flee
-  return !context.isActivelyChosen;
 }
 
 /**
@@ -73,91 +65,115 @@ export function findClosestOwnedTile(gameState: GameState, player: Player, curre
 }
 
 /**
- * Handle resource loss when fleeing (partial success on flee roll)
+ * Handle the loss on a partial flee success.
+ *
+ * Monster combat: lose 1 resource of your choice (if none, lose 1 fame; if no fame, lose nothing).
+ * Champion combat: GIVE 1 resource or item to the attacking player (fleeing player chooses).
  */
-async function handleFleeResourceLoss(
-  player: Player,
-  championId: number,
+async function handlePartialFleeLoss(
+  context: FleeContext,
   playerAgent: PlayerAgent,
-  gameState: GameState,
   gameLog: readonly GameLogEntry[],
   logFn: (type: string, content: string) => void,
   thinkingLogger?: (content: string) => void
-): Promise<{ lossDescription: string }> {
-  // Check what resources the player has available
-  const availableResourceTypes: Array<{ type: ResourceType; name: string; amount: number }> = [];
+): Promise<void> {
+  const player = context.player;
+  const championId = context.championId;
+  const isPvpFlee = context.combatType === 'champion' && context.attackerPlayer !== undefined;
 
-  if (player.resources.food > 0) {
-    availableResourceTypes.push({ type: "food", name: "Food", amount: player.resources.food });
-  }
-  if (player.resources.wood > 0) {
-    availableResourceTypes.push({ type: "wood", name: "Wood", amount: player.resources.wood });
-  }
-  if (player.resources.ore > 0) {
-    availableResourceTypes.push({ type: "ore", name: "Ore", amount: player.resources.ore });
-  }
-  if (player.resources.gold > 0) {
-    availableResourceTypes.push({ type: "gold", name: "Gold", amount: player.resources.gold });
+  const availableResourceTypes = (["food", "wood", "ore", "gold"] as ResourceType[]).filter(
+    (type) => player.resources[type] > 0
+  );
+
+  // For PVP fleeing, items may also be given (if the attacker's champion has space)
+  const champion = context.gameState.getChampion(player.name, championId);
+  const attackerChampion = isPvpFlee && context.attackerPlayer && context.attackerChampionId !== undefined
+    ? context.gameState.getChampion(context.attackerPlayer.name, context.attackerChampionId)
+    : undefined;
+
+  const givableItems: Array<{ item: CarriableItem; index: number }> = [];
+  if (isPvpFlee && champion && attackerChampion) {
+    champion.items.forEach((item, index) => {
+      if (!item.stuck && !item.unstealable && canChampionCarryMoreItems(attackerChampion, getItemSlotSize(item))) {
+        givableItems.push({ item, index });
+      }
+    });
   }
 
-  // Case 1: No resources available - lose 1 fame instead (unless fame is already 0)
-  if (availableResourceTypes.length === 0) {
-    if (player.fame > 0) {
+  // Nothing to lose or give
+  if (availableResourceTypes.length === 0 && givableItems.length === 0) {
+    if (isPvpFlee) {
+      logFn("combat", `Champion${championId} fled with nothing to give to the attacker`);
+    } else if (player.fame > 0) {
       player.fame--;
       logFn("combat", `Champion${championId} lost 1 fame from fleeing (no resources available)`);
-      return { lossDescription: "fame" };
     } else {
       logFn("combat", `Champion${championId} had no resources or fame to lose from fleeing`);
-      return { lossDescription: "" };
+    }
+    return;
+  }
+
+  // Build options
+  const options: DecisionOption[] = [
+    ...availableResourceTypes.map((type) => ({
+      id: `resource_${type}`,
+      description: `1 ${type} (you have ${player.resources[type]})`
+    })),
+    ...givableItems.map(({ item, index }) => {
+      const itemName = item.treasureCard?.name || item.traderItem?.name || "Unknown Item";
+      return { id: `item_${index}`, description: `Give item: ${itemName}` };
+    })
+  ];
+
+  let choice: string;
+  if (options.length === 1) {
+    choice = options[0].id;
+  } else {
+    const currentResources = formatResources(player.resources, ", ");
+    const decisionContext: DecisionContext = {
+      description: isPvpFlee
+        ? `Choose which resource or item to give to ${context.attackerPlayer!.name} for your escape (you have: ${currentResources}):`
+        : `Choose which resource to lose from fleeing (you have: ${currentResources}):`,
+      options
+    };
+    try {
+      const decision = await playerAgent.makeDecision(context.gameState, gameLog, decisionContext, thinkingLogger);
+      choice = options.some((o) => o.id === decision.choice) ? decision.choice : options[0].id;
+    } catch (error) {
+      choice = options[0].id;
     }
   }
 
-  // Case 2: Only one resource type available - automatically use it
-  if (availableResourceTypes.length === 1) {
-    const resourceType = availableResourceTypes[0];
-    player.resources[resourceType.type]--;
-    logFn("combat", `Champion${championId} lost 1 ${resourceType.name.toLowerCase()} from fleeing`);
-    return { lossDescription: resourceType.name.toLowerCase() };
-  }
-
-  // Case 3: Multiple resource types available - ask player to choose
-  const currentResources = formatResources(player.resources, ", ");
-  const decisionContext: DecisionContext = {
-    description: `Choose which resource to lose from fleeing (you have: ${currentResources}):`,
-    options: availableResourceTypes.map(resource => ({
-      id: resource.type,
-      description: `1 ${resource.name} (you have ${resource.amount})`
-    }))
-  };
-
-  try {
-    const decision = await playerAgent.makeDecision(gameState, gameLog, decisionContext, thinkingLogger);
-    const chosenOption = decision.choice as ResourceType;
-
-    // Check if the chosen resource type is valid and available
-    const chosenResource = availableResourceTypes.find(r => r.type === chosenOption);
-    if (chosenResource && player.resources[chosenOption] > 0) {
-      player.resources[chosenOption]--;
-      logFn("combat", `Champion${championId} lost 1 ${chosenResource.name.toLowerCase()} from fleeing`);
-      return { lossDescription: chosenResource.name.toLowerCase() };
+  if (choice.startsWith("resource_")) {
+    const resourceType = choice.split("_")[1] as ResourceType;
+    player.resources[resourceType]--;
+    if (isPvpFlee && context.attackerPlayer) {
+      context.attackerPlayer.resources[resourceType]++;
+      logFn("combat", `Champion${championId} gave 1 ${resourceType} to ${context.attackerPlayer.name} while fleeing`);
+    } else {
+      logFn("combat", `Champion${championId} lost 1 ${resourceType} from fleeing`);
     }
-
-    // Fallback if invalid choice - use first available resource
-    const fallbackResource = availableResourceTypes[0];
-    player.resources[fallbackResource.type]--;
-    logFn("combat", `Champion${championId} lost 1 ${fallbackResource.name.toLowerCase()} from fleeing (fallback)`);
-    return { lossDescription: fallbackResource.name.toLowerCase() };
-  } catch (error) {
-    // Error getting decision - use first available resource as fallback
-    const fallbackResource = availableResourceTypes[0];
-    player.resources[fallbackResource.type]--;
-    logFn("combat", `Champion${championId} lost 1 ${fallbackResource.name.toLowerCase()} from fleeing (error fallback)`);
-    return { lossDescription: fallbackResource.name.toLowerCase() };
+  } else if (choice.startsWith("item_") && champion && attackerChampion && context.attackerPlayer) {
+    const itemIndex = parseInt(choice.split("_")[1]);
+    if (itemIndex >= 0 && itemIndex < champion.items.length) {
+      const givenItem = champion.items[itemIndex];
+      champion.items.splice(itemIndex, 1);
+      attackerChampion.items.push(givenItem);
+      const itemName = givenItem.treasureCard?.name || givenItem.traderItem?.name || "Unknown Item";
+      logFn("combat", `Champion${championId} gave ${itemName} to ${context.attackerPlayer.name} while fleeing`);
+    }
   }
 }
 
 /**
- * Handle the flee decision and outcome
+ * Handle the flee decision and outcome.
+ *
+ * Roll 1D3:
+ * - 1: Failure. Combat happens as normal.
+ * - 2: Partial success. Knight flees to closest unoccupied owned tile (or home) and loses/gives 1 resource (or item, in PVP).
+ * - 3: Success. Knight flees to home tile without any loss.
+ *
+ * Fleeing from the dragon is impossible.
  */
 export async function handleFleeDecision(
   context: FleeContext,
@@ -167,10 +183,10 @@ export async function handleFleeDecision(
   thinkingLogger?: (content: string) => void
 ): Promise<FleeResult> {
   // Check if fleeing is allowed
-  if (!canPlayerFlee(context)) {
+  if (!context.canFlee) {
     return {
       attemptedFlee: false,
-      reasoning: "Cannot flee - actively chose to fight"
+      reasoning: "Cannot flee from this combat"
     };
   }
 
@@ -184,7 +200,7 @@ export async function handleFleeDecision(
       },
       {
         id: "flee",
-        description: "Attempt to flee"
+        description: "Attempt to flee (1D3: 1 = fight anyway, 2 = escape but lose 1 resource, 3 = escape home safely)"
       }
     ]
   };
@@ -199,27 +215,7 @@ export async function handleFleeDecision(
     };
   }
 
-  // Player chose to flee - handle outcome
-  if (context.combatType === 'dragon') {
-    // Dragon fleeing always succeeds
-    const champion = context.gameState.getChampion(context.player.name, context.championId);
-    if (champion) {
-      champion.position = context.player.homePosition;
-    }
-    context.player.fame = Math.max(0, context.player.fame - GameSettings.DEFEAT_FAME_PENALTY);
-
-    logFn("combat", `Champion${context.championId} fled from the dragon, returned home and lost ${GameSettings.DEFEAT_FAME_PENALTY} fame`);
-
-    return {
-      attemptedFlee: true,
-      fleeSuccessful: true,
-      destination: context.player.homePosition,
-      fameLoss: GameSettings.DEFEAT_FAME_PENALTY,
-      reasoning: decision.reasoning || "Fled from dragon"
-    };
-  }
-
-  // Normal combat (monster/champion) - roll for outcome
+  // Player chose to flee - roll for outcome
   const fleeRoll = rollD3();
   logFn("combat", `Champion${context.championId} attempts to flee, rolled [${fleeRoll}]`);
 
@@ -243,7 +239,7 @@ export async function handleFleeDecision(
   }
 
   if (fleeRoll === 2) {
-    // Partial success - flee to closest owned tile and lose 1 resource
+    // Partial success - flee to closest owned tile and lose/give 1 resource (or item)
     const closestOwnedTile = findClosestOwnedTile(context.gameState, context.player, champion.position);
 
     let destination: Position;
@@ -257,23 +253,12 @@ export async function handleFleeDecision(
 
     champion.position = destination;
 
-    // Handle resource loss from fleeing
-    const { lossDescription } = await handleFleeResourceLoss(
-      context.player,
-      context.championId,
-      playerAgent,
-      context.gameState,
-      gameLog,
-      logFn,
-      thinkingLogger
-    );
+    await handlePartialFleeLoss(context, playerAgent, gameLog, logFn, thinkingLogger);
 
     return {
       attemptedFlee: true,
       fleeSuccessful: true,
       destination,
-      resourceLoss: lossDescription || undefined,
-      fameLoss: lossDescription === "fame" ? 1 : undefined,
       reasoning: decision.reasoning || "Fled to closest owned tile"
     };
   }
@@ -288,4 +273,4 @@ export async function handleFleeDecision(
     destination: context.player.homePosition,
     reasoning: decision.reasoning || "Fled to home"
   };
-} 
+}

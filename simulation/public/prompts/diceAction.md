@@ -21,11 +21,14 @@ Respond with a JSON object specifying your dice action, and which die value you 
 
 The actionType MUST be one of the following:
 
-1. championAction: Do something with a champion (move and/or act on a tile).
+1. championAction: Do something with a champion (move and/or act on a tile). You may combine multiple dice into one longer movement (sprinting) by setting diceValuesUsed to an array of dice values - the step values add up.
 2. boatAction: Do something with a boat (move and/or transport a champion to a tile, who then can act on that tile)
-3. harvestAction: Collect resources from your claimed tiles, using one or more die values. Harvest from one tile per die value.
+3. harvestAction: Save one or more dice for the harvest phase. Total die value = number of different tiles you will be able to harvest from. You choose which tiles to harvest from later, during the harvest phase (after all players have moved).
 
-If you harvest, no more championAction or boatAction actions can be carried out after that. Build actions (using buildings, constructing buildings, recruiting champions, etc.) happen at the end of your turn, after all action dice are used.
+Important restrictions:
+
+- Once a champion has interacted with a tile (explored, fought, drawn an adventure card, used a special location, claimed or taken over a tile), that champion cannot use any more action dice this round. Choose another champion, a boat action, or a harvest action instead.
+- Build actions (using buildings, constructing buildings, recruiting champions, etc.) happen automatically during the harvest phase, after all action dice are used.
 
 Make sure your action is legal according to the game rules and the current board state.
 </dice-action-request>

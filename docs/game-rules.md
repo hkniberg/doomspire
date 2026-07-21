@@ -377,7 +377,7 @@ When a player reaches 2 dragon impressions, the game ends and the final ranking 
 **Final ranking**:
 
 - **King of Doomspire**: The player who reached 2 dragon impressions.
-- **Hand of the King**: Player with the most resource tiles claimed. Tiebreaker: most starred resource tiles. If still tied, King decides.
+- **Hand of the King**: Player with the most resource tiles claimed (the home tile counts as a claimed resource tile). Tiebreaker: most starred resource tiles. If still tied, King decides.
 - **Master of Coin**: Player with the most gold. Tiebreaker: total resources (gold + food + wood + ore). If still tied, King decides.
 - **Court Jester**: The remaining player. That player must clean up the mess (but may beg for help).
 
@@ -658,5 +658,6 @@ The whole island is uncharted.
 
 Weird edge cases, settled:
 
+- **The home tile counts as a resource tile** that you own. This matters for looting after knight combat (half your resource tiles, rounded up) and for the Hand of the King title. It cannot be blockaded or taken over (opposing knights can never enter it).
 - **Porcupine / Hedgehog**: "higher combat total" means the opponent's full total - dice + might + support + item and follower bonuses - excluding the shield's own bonus. Evaluate after dice are rolled and support is announced.
 - **Porcupine vs Hedgehog**: if both knights in a battle carry an underdog shield (Porcupine or Hedgehog), the shields bristle at each other and cancel out - neither grants its bonus.

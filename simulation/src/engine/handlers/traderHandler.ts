@@ -33,13 +33,15 @@ export interface TraderResult {
  */
 export function createTraderContext(
   player: Player,
-  gameDecks: GameDecks
+  gameDecks: GameDecks,
+  gameState?: GameState
 ): TraderContext {
   const availableItems = gameDecks.getAvailableTraderCards(); // Get available items from deck
+  const exchangeRate = gameState?.fateEffects.traderRate1to1 ? 1 : 2;
 
   const description = `Trader options available:
 - Purchase items from trader deck (${availableItems.length} items available)
-- Exchange resources at 2:1 rate (pay 2 of any resource, get 1 gold)
+- Exchange resources at ${exchangeRate}:1 rate (pay ${exchangeRate} of any resource, get 1 of any other resource)${exchangeRate === 1 ? " (Merchant Fair: 1:1 this round!)" : ""}
 - Your current resources: ${formatResources(player.resources)}`;
 
   return {
@@ -91,7 +93,7 @@ export function handleTraderInteraction(
         });
       }
     } else if (action.type === "sellResources") {
-      const sellResult = processSellResourcesAction(player, action, logFn);
+      const sellResult = processSellResourcesAction(gameState, player, action, logFn);
       if (sellResult.success) {
         result.resourceTrades.push({
           resourcesGiven: action.resourcesSold!,
@@ -237,9 +239,10 @@ function processBuyItemAction(
 }
 
 /**
- * Process a sell resources action (2:1 exchange rate for gold)
+ * Process a sell resources action (2:1 exchange rate, or 1:1 during a Merchant Fair)
  */
 function processSellResourcesAction(
+  gameState: GameState,
   player: Player,
   action: TraderAction,
   logFn: (type: string, content: string) => void
@@ -248,8 +251,9 @@ function processSellResourcesAction(
     return { success: false, reason: "Missing resources offered or requested" };
   }
 
-  // According to rules, trader allows 2:1 exchange rate to gold
-  // But also allows resource-to-resource trades at 2:1 rate
+  // The trader allows any-resource-to-any-resource trades at a 2:1 rate
+  // (1:1 during a Merchant Fair fate card)
+  const exchangeRate = gameState.fateEffects.traderRate1to1 ? 1 : 2;
   const totalResourcesOffered = Object.values(action.resourcesSold).reduce((sum, amount) => sum + amount, 0);
 
   if (totalResourcesOffered === 0) {
@@ -267,11 +271,11 @@ function processSellResourcesAction(
     }
   }
 
-  // Calculate what they get (2:1 ratio)
-  const amountReceived = Math.floor(totalResourcesOffered / 2);
+  // Calculate what they get
+  const amountReceived = Math.floor(totalResourcesOffered / exchangeRate);
 
   if (amountReceived === 0) {
-    return { success: false, reason: "Need at least 2 resources to make a trade" };
+    return { success: false, reason: `Need at least ${exchangeRate} resources to make a trade` };
   }
 
   // Deduct offered resources

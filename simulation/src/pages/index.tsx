@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ApiKeyModal } from "../components/ApiKeyModal";
 import { CardDecks } from "../components/CardDecks";
 import { ControlPanel } from "../components/ControlPanel";
+import { FateCardPanel } from "../components/FateCardPanel";
 import { GameBoard } from "../components/GameBoard";
 import { GameLog } from "../components/GameLog";
 import { GameStatus } from "../components/GameStatus";
@@ -114,27 +115,6 @@ export default function GameSimulation() {
             break;
         }
       }
-      // Handle harvest tile selection
-      else if (movementAndDice.selectedChampionId === null && movementAndDice.selectedHarvestTiles.length > 0) {
-        switch (event.key.toLowerCase()) {
-          case "enter":
-            // Complete the harvest action
-            event.preventDefault();
-            console.log("⏎ Enter pressed - completing harvest");
-            const resolver = humanPlayer.humanDiceActionContext?.resolver;
-            const onAllDiceUsed = () => {
-              humanPlayer.setHumanDiceActionContext(null);
-            };
-            movementAndDice.handleHarvestAction(gameSession.gameState || undefined, resolver, onAllDiceUsed);
-            break;
-          case "escape":
-            // Cancel the harvest tile selection
-            event.preventDefault();
-            console.log("⎋ Escape pressed - canceling harvest selection");
-            movementAndDice.setSelectedHarvestTiles([]);
-            break;
-        }
-      }
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -144,7 +124,6 @@ export default function GameSimulation() {
     humanPlayer.humanDiceActionContext,
     movementAndDice.championMovementPath,
     movementAndDice.selectedDieIndex,
-    movementAndDice.selectedHarvestTiles,
     movementAndDice,
     gameSession.gameState,
   ]);
@@ -197,16 +176,12 @@ export default function GameSimulation() {
     movementAndDice.handleTileClick(row, col, gameSession.gameState || undefined);
   };
 
-  const enhancedHarvestAction = () => {
+  const enhancedSaveDieForHarvest = () => {
     const resolver = humanPlayer.humanDiceActionContext?.resolver;
     const onAllDiceUsed = () => {
       humanPlayer.setHumanDiceActionContext(null);
     };
-    movementAndDice.handleHarvestAction(gameSession.gameState || undefined, resolver, onAllDiceUsed);
-  };
-
-  const enhancedHarvestCancel = () => {
-    movementAndDice.setSelectedHarvestTiles([]);
+    movementAndDice.handleSaveDieForHarvest(resolver, onAllDiceUsed);
   };
 
   const enhancedMovementDone = () => {
@@ -240,7 +215,7 @@ export default function GameSimulation() {
         onDiceActionNeeded: enhancedHumanDiceAction,
         onDecisionNeeded: humanPlayer.handleHumanDecision,
         onTraderDecisionNeeded: traderModal.openTraderModal,
-        onBuildingDecisionNeeded: buildingModal.openBuildingModal,
+        onHarvestDecisionNeeded: buildingModal.openBuildingModal,
       },
     );
   };
@@ -517,8 +492,8 @@ export default function GameSimulation() {
             </div>
 
             {/* Token Usage Widget */}
-            {gameSession.gameSession && (
-              <TokenUsage tokenUsageTracker={gameSession.gameSession.getTokenUsageTracker()} />
+            {gameSession.gameSession && Object.keys(gameSetup.claudeTokenTrackers).length > 0 && (
+              <TokenUsage tokenUsageTrackers={Object.values(gameSetup.claudeTokenTrackers)} />
             )}
 
             {/* Copy Gamestate Button */}
@@ -644,34 +619,32 @@ export default function GameSimulation() {
                       />
                     )}
 
-                    {/* Harvest */}
-                    {movementAndDice.selectedChampionId === null &&
-                      movementAndDice.selectedHarvestTiles.length > 0 &&
-                      movementAndDice.selectedDieIndex !== null && (
-                        <HumanPlayerStatus
-                          actionType="harvest"
-                          selectedTileCount={movementAndDice.selectedHarvestTiles.length}
-                          maxTiles={movementAndDice.diceValues[movementAndDice.selectedDieIndex]}
-                          onCancel={enhancedHarvestCancel}
-                          onDone={enhancedHarvestAction}
-                          canCancel={true}
-                          canConfirm={movementAndDice.selectedHarvestTiles.length > 0}
-                        />
-                      )}
+                    {/* Die selected: move a knight, or save the die for the harvest phase */}
+                    {movementAndDice.selectedChampionId === null && movementAndDice.selectedDieIndex !== null && (
+                      <HumanPlayerStatus
+                        actionType="harvest"
+                        onCancel={() => movementAndDice.setSelectedDieIndex(null)}
+                        onDone={enhancedSaveDieForHarvest}
+                        canCancel={true}
+                        canConfirm={true}
+                      />
+                    )}
 
-                    {/* Dice Selection - show when no specific action is happening */}
-                    {movementAndDice.selectedChampionId === null &&
-                      movementAndDice.selectedHarvestTiles.length === 0 && (
-                        <HumanPlayerStatus
-                          actionType="diceSelection"
-                          onCancel={() => {}} // No cancel for dice selection
-                          onDone={() => {}} // No done for dice selection
-                          canCancel={false}
-                          canConfirm={false}
-                        />
-                      )}
+                    {/* Dice Selection - show when no die is selected */}
+                    {movementAndDice.selectedChampionId === null && movementAndDice.selectedDieIndex === null && (
+                      <HumanPlayerStatus
+                        actionType="diceSelection"
+                        onCancel={() => {}} // No cancel for dice selection
+                        onDone={() => {}} // No done for dice selection
+                        canCancel={false}
+                        canConfirm={false}
+                      />
+                    )}
                   </>
                 )}
+
+                {/* Current Fate Card */}
+                <FateCardPanel gameSession={gameSession.gameSession} />
 
                 {/* Card Decks - Right Side */}
                 <div style={{ flex: 1 }}>
@@ -687,6 +660,7 @@ export default function GameSimulation() {
                 debugMode={debugMode}
                 allowDragging={allowDragging}
                 playerConfigs={gameSetup.playerConfigs}
+                claudeTokenTrackers={gameSetup.claudeTokenTrackers}
                 onExtraInstructionsChange={handleExtraInstructionsChange}
                 onGameStateUpdate={(newGameState) => {
                   gameSession.setGameState(newGameState);
@@ -699,7 +673,6 @@ export default function GameSimulation() {
                     ? {
                         selectedChampionId: movementAndDice.selectedChampionId,
                         championMovementPath: movementAndDice.championMovementPath,
-                        selectedHarvestTiles: movementAndDice.selectedHarvestTiles,
                         onChampionSelect: enhancedChampionSelection,
                         onTileClick: enhancedTileClick,
                         hasSelectedDie: movementAndDice.selectedDieIndex !== null,
@@ -766,15 +739,20 @@ export default function GameSimulation() {
           />
         )}
 
-        {/* Building Modal */}
-        {buildingModal.isBuildingModalOpen && gameSession.gameState && (
-          <BuildingModal
-            isOpen={buildingModal.isBuildingModalOpen}
-            player={gameSession.gameState.getCurrentPlayer()}
-            onConfirm={buildingModal.handleBuildingDecision}
-            onCancel={() => buildingModal.handleBuildingDecision({ reasoning: "Cancelled by user" })}
-          />
-        )}
+        {/* Harvest Phase Modal (harvest phase runs in parallel, so use the player the modal was opened for) */}
+        {buildingModal.isBuildingModalOpen &&
+          gameSession.gameState &&
+          buildingModal.buildingModalPlayerName &&
+          gameSession.gameState.getPlayer(buildingModal.buildingModalPlayerName) && (
+            <BuildingModal
+              isOpen={buildingModal.isBuildingModalOpen}
+              player={gameSession.gameState.getPlayer(buildingModal.buildingModalPlayerName)!}
+              savedDiceValues={buildingModal.savedDiceValues}
+              eligibleHarvestTiles={buildingModal.eligibleHarvestTiles}
+              onConfirm={buildingModal.handleBuildingDecision}
+              onCancel={() => buildingModal.handleBuildingDecision({ reasoning: "Cancelled by user" })}
+            />
+          )}
 
         {/* Tile Action Modal */}
         {movementAndDice.tileActionModalOpen && movementAndDice.pendingChampionAction && gameSession.gameState && (

@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { TemplateProcessor } from "@/lib/templateProcessor";
-import { Claude } from "@/llm/claude";
+import { Claude, ClaudeModel, DEFAULT_CLAUDE_MODEL } from "@/llm/claude";
+import { TokenUsageTracker } from "@/lib/TokenUsageTracker";
 import { GameMaster, GameMasterConfig } from "../engine/GameMaster";
 import { ClaudePlayerAgent } from "../players/ClaudePlayer";
 import { HumanPlayer } from "../players/HumanPlayer";
@@ -9,13 +10,14 @@ import { RandomPlayerAgent } from "../players/RandomPlayerAgent";
 import { DecisionContext, GameLogEntry, TurnContext } from "../lib/types";
 import { DiceAction } from "../lib/actionTypes";
 import { TraderContext, TraderDecision } from "../lib/traderTypes";
-import { BuildingDecision } from "../lib/actionTypes";
+import { HarvestDecision } from "../lib/actionTypes";
 
 type PlayerType = "random" | "claude" | "human";
 
 interface PlayerConfig {
   name: string;
   type: PlayerType;
+  model?: ClaudeModel; // Only relevant for claude players
 }
 
 interface GameConfig {
@@ -62,11 +64,12 @@ interface UseGameSetupReturn {
         gameLog: readonly GameLogEntry[],
         traderContext: TraderContext,
       ) => Promise<TraderDecision>;
-      onBuildingDecisionNeeded: (
+      onHarvestDecisionNeeded: (
         gameState: import("../game/GameState").GameState,
         gameLog: readonly GameLogEntry[],
         playerName: string,
-      ) => Promise<BuildingDecision>;
+        savedDiceValues: number[],
+      ) => Promise<HarvestDecision>;
     },
   ) => Promise<PlayerAgent>;
   startNewGame: (
@@ -93,14 +96,17 @@ interface UseGameSetupReturn {
         gameLog: readonly GameLogEntry[],
         traderContext: TraderContext,
       ) => Promise<TraderDecision>;
-      onBuildingDecisionNeeded: (
+      onHarvestDecisionNeeded: (
         gameState: import("../game/GameState").GameState,
         gameLog: readonly GameLogEntry[],
         playerName: string,
-      ) => Promise<BuildingDecision>;
+        savedDiceValues: number[],
+      ) => Promise<HarvestDecision>;
     },
   ) => Promise<void>;
   hasClaudePlayers: boolean;
+  // Per-player token usage trackers for Claude players, keyed by player name
+  claudeTokenTrackers: Record<string, TokenUsageTracker>;
 }
 
 export function useGameSetup(): UseGameSetupReturn {
@@ -126,6 +132,7 @@ export function useGameSetup(): UseGameSetupReturn {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [claudeTokenTrackers, setClaudeTokenTrackers] = useState<Record<string, TokenUsageTracker>>({});
 
   const updatePlayerConfig = useCallback((index: number, field: keyof PlayerConfig, value: string) => {
     setPlayerConfigs((prev) => prev.map((config, i) => (i === index ? { ...config, [field]: value } : config)));
@@ -150,11 +157,12 @@ export function useGameSetup(): UseGameSetupReturn {
         gameLog: readonly GameLogEntry[],
         traderContext: TraderContext,
       ) => Promise<TraderDecision>;
-      onBuildingDecisionNeeded: (
+      onHarvestDecisionNeeded: (
         gameState: import("../game/GameState").GameState,
         gameLog: readonly GameLogEntry[],
         playerName: string,
-      ) => Promise<BuildingDecision>;
+        savedDiceValues: number[],
+      ) => Promise<HarvestDecision>;
     },
   ): Promise<PlayerAgent> => {
     switch (config.type) {
@@ -168,7 +176,7 @@ export function useGameSetup(): UseGameSetupReturn {
         const templateProcessor = new TemplateProcessor();
         // Get the system message for Claude
         const systemMessage = await templateProcessor.processTemplate("SystemPrompt", {});
-        const claude = new Claude(apiKey.trim(), systemMessage, undefined, tokenUsageTracker);
+        const claude = new Claude(apiKey.trim(), systemMessage, config.model ?? DEFAULT_CLAUDE_MODEL, tokenUsageTracker);
         return new ClaudePlayerAgent(config.name, claude, templateProcessor);
       case "human":
         const humanPlayer = new HumanPlayer(config.name);
@@ -205,11 +213,12 @@ export function useGameSetup(): UseGameSetupReturn {
         gameLog: readonly GameLogEntry[],
         traderContext: TraderContext,
       ) => Promise<TraderDecision>;
-      onBuildingDecisionNeeded: (
+      onHarvestDecisionNeeded: (
         gameState: import("../game/GameState").GameState,
         gameLog: readonly GameLogEntry[],
         playerName: string,
-      ) => Promise<BuildingDecision>;
+        savedDiceValues: number[],
+      ) => Promise<HarvestDecision>;
     },
   ) => {
     try {
@@ -222,13 +231,19 @@ export function useGameSetup(): UseGameSetupReturn {
 
       setIsStartingGame(true);
 
-      // Create token usage tracker for Claude players
-      const { TokenUsageTracker } = await import("@/lib/TokenUsageTracker");
-      const tokenUsageTracker = new TokenUsageTracker();
+      // Create one token usage tracker per Claude player, so cost can be shown
+      // per player (and priced per model)
+      const trackers: Record<string, TokenUsageTracker> = {};
+      for (const config of playerConfigs) {
+        if (config.type === "claude") {
+          trackers[config.name] = new TokenUsageTracker(config.model ?? DEFAULT_CLAUDE_MODEL);
+        }
+      }
+      setClaudeTokenTrackers(trackers);
 
       // Create all players asynchronously
       const players = await Promise.all(
-        playerConfigs.map((config) => createPlayer(config, tokenUsageTracker, humanPlayerCallbacks))
+        playerConfigs.map((config) => createPlayer(config, trackers[config.name], humanPlayerCallbacks))
       );
 
       // Validate player names
@@ -258,7 +273,6 @@ export function useGameSetup(): UseGameSetupReturn {
           gold: gameConfig.startGold,
         },
         seed: gameConfig.seed,
-        tokenUsageTracker: tokenUsageTracker, // Pass the same tracker instance
       };
 
       const session = new GameMaster(sessionConfig);
@@ -303,5 +317,6 @@ export function useGameSetup(): UseGameSetupReturn {
     createPlayer,
     startNewGame,
     hasClaudePlayers,
+    claudeTokenTrackers,
   };
 }

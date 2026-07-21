@@ -19,4 +19,4 @@ Available options:
 {{gameLog}}
 </game-log>
 
-Respond with a JSON object containing your choice and reasoning. Your choice should be one of the available options listed above.
+Respond with a JSON object containing your choice and reasoning. Your choice must be the exact id (the quoted string) of one of the available options listed above.

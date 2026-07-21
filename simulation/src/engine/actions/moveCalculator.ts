@@ -5,7 +5,16 @@ import type { OceanPosition, Position } from "../../lib/types";
 
 export interface MoveResult {
   endPosition: Position;
-  stopReason: "arrived" | "diceValueReached" | "unexploredTile" | "invalidMove" | "outOfBounds" | "otherPlayerHome";
+  stopReason:
+  | "arrived"
+  | "diceValueReached"
+  | "unexploredTile"
+  | "monsterTile"
+  | "invalidMove"
+  | "outOfBounds"
+  | "otherPlayerHome"
+  | "ownChampion"
+  | "settlingRestriction";
 }
 
 /**
@@ -80,12 +89,42 @@ export function calculateChampionMove(
       };
     }
 
+    // Cannot enter a tile containing one of your own knights
+    const hasOwnChampion = currentPlayer.champions.some(champion =>
+      champion.position.row === nextPosition.row && champion.position.col === nextPosition.col
+    );
+    if (hasOwnChampion) {
+      return {
+        endPosition: currentPosition,
+        stopReason: "ownChampion"
+      };
+    }
+
+    // Settling fate card: knights cannot move into a tile with another knight or a creature
+    if (gameState.fateEffects.settling) {
+      const hasOpposingChampion = gameState.getOpposingChampionsAtPosition(playerName, nextPosition).length > 0;
+      if (hasOpposingChampion || tile.monster !== undefined) {
+        return {
+          endPosition: currentPosition,
+          stopReason: "settlingRestriction"
+        };
+      }
+    }
+
     // Check if tile is unexplored
     if (tile.explored === false) {
       // Stop at the unexplored tile
       return {
         endPosition: nextPosition,
         stopReason: "unexploredTile"
+      };
+    }
+
+    // Must stop when entering a tile with a monster on it
+    if (tile.monster !== undefined) {
+      return {
+        endPosition: nextPosition,
+        stopReason: "monsterTile"
       };
     }
 
@@ -178,7 +217,8 @@ export function calculateBoatMove(
   let movesUsed = 0;
   let allReachableCoastalTiles: Position[] = [];
 
-  // Collect all coastal tiles the boat passes through (including start)
+  // Collect all coastal tiles the boat passes through (including start).
+  // A champion can be PICKED UP anywhere along the path.
   allReachableCoastalTiles.push(...getCoastalTilesForOceanPosition(currentPosition));
 
   // Process each step in the path (starting from index 1, since 0 is start position)
@@ -220,8 +260,9 @@ export function calculateBoatMove(
     };
   }
 
-  // Check if champion drop position is reachable by boat during its journey
-  const championDropReachable = allReachableCoastalTiles.some(tile =>
+  // The champion must be DROPPED at a coastal tile in the target (final) ocean zone
+  const finalZoneCoastalTiles = getCoastalTilesForOceanPosition(currentPosition);
+  const championDropReachable = finalZoneCoastalTiles.some(tile =>
     tile.row === championDropPosition.row && tile.col === championDropPosition.col
   );
 

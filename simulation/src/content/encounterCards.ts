@@ -16,7 +16,6 @@ export interface Encounter {
 export const ENCOUNTERS: Encounter[] = [
   // Tier 1 Encounter Cards
   {
-    disabled: true,
     id: "angry-dog",
     name: "Angry dog",
     tier: 1,
@@ -36,7 +35,6 @@ export const ENCOUNTERS: Encounter[] = [
     theme: "beast",
   },
   {
-    disabled: true,
     id: "priestess",
     name: "Priestess",
     tier: 1,
@@ -56,7 +54,6 @@ export const ENCOUNTERS: Encounter[] = [
     theme: "grove",
   },
   {
-    disabled: true,
     id: "fairy-godmother",
     name: "Fairy godmother",
     tier: 1,
@@ -69,7 +66,6 @@ export const ENCOUNTERS: Encounter[] = [
 
   // Tier 2 Encounter Cards
   {
-    disabled: true,
     id: "proud-mercenary",
     name: "Proud Mercenary",
     tier: 2,
@@ -79,7 +75,6 @@ export const ENCOUNTERS: Encounter[] = [
     theme: "beast",
   },
   {
-    disabled: true,
     id: "brawler",
     name: "Brawler",
     tier: 2,
@@ -89,7 +84,6 @@ export const ENCOUNTERS: Encounter[] = [
     theme: "cave",
   },
   {
-    disabled: true,
     id: "witch",
     name: "Witch",
     tier: 2,

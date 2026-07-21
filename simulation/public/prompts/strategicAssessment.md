@@ -41,8 +41,8 @@ As an AI player, you should:
 - Make efficient use of your dice rolls
 - Make sure you follow the rules of the game
 - Have a plan for which buildings to build and use, and claim tiles to match your needs.
-- Be tactical about when to enter doomspire, and how to impress the dragon. Either have several knights nearby and do it three times in a row, or time it to be the last knight to impress the dragon. Whowever impresses the dragon last is the winner.
-- Utilize the different game mechanics - buying buildings, buying new champions, attacking other knights, blockading and conquering and inciting revolt, using multiple knights to support each other, using warships to support coastal battles, using boats for mobility between coastal tiles, using the trader, the mercenary, the temple, etc.
+- Be tactical about when to enter doomspire, and how to impress the dragon. The first player to impress the dragon twice wins, and you can impress it at most once per round - so plan for two visits (or park a knight at Doomspire that can impress it two rounds in a row).
+- Utilize the different game mechanics - buying buildings, buying new champions, attacking other knights, blockading resource tiles, conquering (2 fame) or bribing (2 gold) to take over unprotected tiles, using multiple knights to support each other, using warships to support coastal battles, using boats for mobility between coastal tiles, using the trader, the mercenary, the temple, etc.
 - Balance risk and reward in your decisions
 - Plan both short-term moves and long-term strategy
 - Losing a battle is not the end of the world, as long as you have a single resource you only risk getting sent home and losing 1 resource. So you don't need to wait for 100% odds of winning.

@@ -8,9 +8,13 @@
 /**
  * Schema for tile action parameters
  */
+// Note: all fields are required (use false / empty arrays when not applicable).
+// Optional fields blow up the structured-outputs grammar - the API limits the
+// total number of optional parameters per request to 24, and this schema is
+// embedded twice in the dice action schema.
 export const tileActionSchema = {
   type: "object",
-  description: "Actions to perform on a tile",
+  description: "Actions to perform on a tile. All fields must be provided: use false or an empty array for actions you don't want to take.",
   properties: {
     claimTile: {
       type: "boolean",
@@ -31,22 +35,23 @@ export const tileActionSchema = {
     pickUpItems: {
       type: "array",
       items: { type: "string" },
-      description: "Array of item IDs to pick up from this tile"
+      description: "Array of item IDs to pick up from this tile (empty array for none)"
     },
     dropItems: {
       type: "array",
       items: { type: "string" },
-      description: "Array of item IDs to drop on this tile"
+      description: "Array of item IDs to drop on this tile (empty array for none)"
     },
-    conquerWithMight: {
+    conquer: {
       type: "boolean",
-      description: "Conquer this tile using military might (costs 1 might)"
+      description: "Conquer another player's unprotected resource tile by force (costs 2 fame, replaces their village with yours)"
     },
-    inciteRevolt: {
+    bribe: {
       type: "boolean",
-      description: "Incite revolt using fame (costs 1 fame, frees up tile but doesn't claim it)"
+      description: "Take over another player's unprotected resource tile through bribery (costs 2 gold, replaces their village with yours)"
     },
   },
+  required: ["claimTile", "useTrader", "useMercenary", "useTemple", "pickUpItems", "dropItems", "conquer", "bribe"],
   additionalProperties: false
 };
 
@@ -83,6 +88,11 @@ export const championActionSchema = {
     diceValueUsed: {
       type: "number",
       description: "The dice value being consumed for this action"
+    },
+    diceValuesUsed: {
+      type: "array",
+      items: { type: "number" },
+      description: "Optional: combine two or more dice into one longer movement (sprinting). The step values add up. If provided, diceValueUsed is ignored."
     },
     championId: {
       type: "number",
@@ -138,20 +148,15 @@ export const boatActionSchema = {
  */
 export const harvestActionSchema = {
   type: "object",
-  description: "Parameters for harvestAction - collect resources from claimed tiles",
+  description: "Parameters for harvestAction - save dice for the harvest phase. Which tiles to harvest from is decided later, during the harvest phase.",
   properties: {
     diceValuesUsed: {
       type: "array",
       items: { type: "number" },
-      description: "Array of dice values being consumed for this harvest action"
-    },
-    tilePositions: {
-      type: "array",
-      items: positionSchema,
-      description: "Positions of tiles to harvest from"
+      description: "Array of dice values to save for the harvest phase"
     }
   },
-  required: ["diceValuesUsed", "tilePositions"],
+  required: ["diceValuesUsed"],
   additionalProperties: false
 };
 
@@ -164,15 +169,15 @@ export const buildingUsageDecisionSchema = {
   properties: {
     useBlacksmith: {
       type: "boolean",
-      description: "Whether to use the blacksmith to gain might (costs 1 gold + 2 ore)"
+      description: "Whether to use the blacksmith to gain might (costs 1 gold + 3 ore)"
     },
     sellAtMarket: {
       type: "object",
-      description: "Resources to sell at the market (2:1 ratio for gold)",
+      description: "Resources to sell at the market (2:1 ratio for gold). Amounts must not be negative.",
       properties: {
-        food: { type: "number", minimum: 0 },
-        wood: { type: "number", minimum: 0 },
-        ore: { type: "number", minimum: 0 }
+        food: { type: "number" },
+        wood: { type: "number" },
+        ore: { type: "number" }
       },
       additionalProperties: false
     },
@@ -185,12 +190,18 @@ export const buildingUsageDecisionSchema = {
 };
 
 /**
- * Schema for building decision responses from Claude (harvest phase)
+ * Schema for the harvest phase decision responses from Claude:
+ * which tiles to harvest, which buildings to use, and what to build.
  */
-export const buildingDecisionSchema = {
+export const harvestDecisionSchema = {
   type: "object",
-  description: "Decision about building usage and build actions during harvest phase",
+  description: "The harvest phase decision: harvest tiles, building usage, and build action",
   properties: {
+    harvestTiles: {
+      type: "array",
+      items: positionSchema,
+      description: "Positions of the tiles to harvest from, using your saved dice. Max number of tiles = total value of saved dice. Leave empty if you saved no dice."
+    },
     buildingUsageDecision: buildingUsageDecisionSchema,
     buildAction: {
       type: "string",
@@ -206,27 +217,54 @@ export const buildingDecisionSchema = {
 };
 
 /**
- * Main schema for dice action responses from Claude
+ * Main schema for dice action responses from Claude.
+ *
+ * Modeled as anyOf with one branch per action type, so that the payload matching the
+ * actionType is REQUIRED - otherwise the model can (and occasionally does) emit an
+ * actionType with no payload, which is schema-valid but unusable.
  */
+const reasoningProperty = {
+  type: "string",
+  description: "Brief explanation of why this action was chosen"
+};
+
 export const diceActionSchema = {
-  type: "object",
   description: "A single dice action to perform during the movement phase",
-  properties: {
-    actionType: {
-      type: "string",
-      enum: ["championAction", "boatAction", "harvestAction"],
-      description: "Type of action to perform"
+  anyOf: [
+    {
+      type: "object",
+      description: "Do something with a champion (move and/or act on a tile)",
+      properties: {
+        actionType: { const: "championAction" },
+        championAction: championActionSchema,
+        reasoning: reasoningProperty
+      },
+      required: ["actionType", "championAction"],
+      additionalProperties: false
     },
-    championAction: championActionSchema,
-    boatAction: boatActionSchema,
-    harvestAction: harvestActionSchema,
-    reasoning: {
-      type: "string",
-      description: "Brief explanation of why this action was chosen"
+    {
+      type: "object",
+      description: "Do something with a boat (move and/or transport a champion)",
+      properties: {
+        actionType: { const: "boatAction" },
+        boatAction: boatActionSchema,
+        reasoning: reasoningProperty
+      },
+      required: ["actionType", "boatAction"],
+      additionalProperties: false
+    },
+    {
+      type: "object",
+      description: "Save one or more dice for the harvest phase",
+      properties: {
+        actionType: { const: "harvestAction" },
+        harvestAction: harvestActionSchema,
+        reasoning: reasoningProperty
+      },
+      required: ["actionType", "harvestAction"],
+      additionalProperties: false
     }
-  },
-  required: ["actionType"],
-  additionalProperties: false
+  ]
 };
 
 /**
@@ -273,12 +311,12 @@ export const traderDecisionSchema = {
           },
           resourcesSold: {
             type: "object",
-            description: "Resources to sell",
+            description: "Resources to sell. Amounts must not be negative.",
             properties: {
-              food: { type: "number", minimum: 0 },
-              wood: { type: "number", minimum: 0 },
-              ore: { type: "number", minimum: 0 },
-              gold: { type: "number", minimum: 0 }
+              food: { type: "number" },
+              wood: { type: "number" },
+              ore: { type: "number" },
+              gold: { type: "number" }
             },
             additionalProperties: false
           },
@@ -300,6 +338,3 @@ export const traderDecisionSchema = {
   required: ["actions"],
   additionalProperties: false
 };
-
-// Legacy alias for backward compatibility  
-export const buildingUsageSchema = buildingDecisionSchema;

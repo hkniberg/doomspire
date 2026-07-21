@@ -2,10 +2,11 @@ import { TokenUsageTracker } from "@/lib/TokenUsageTracker";
 import { useEffect, useState } from "react";
 
 interface TokenUsageProps {
-  tokenUsageTracker: TokenUsageTracker;
+  // One tracker per Claude player; the widget shows the aggregated totals
+  tokenUsageTrackers: TokenUsageTracker[];
 }
 
-export function TokenUsage({ tokenUsageTracker }: TokenUsageProps) {
+export function TokenUsage({ tokenUsageTrackers }: TokenUsageProps) {
   // State to force re-renders every 5 seconds
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,9 +37,31 @@ export function TokenUsage({ tokenUsageTracker }: TokenUsageProps) {
     };
   }, [isModalOpen]);
 
-  const tokenCounts = tokenUsageTracker.getTokenCounts();
-  const costs = tokenUsageTracker.getCosts();
-  const totalTokens = tokenUsageTracker.getTotalTokens();
+  // Aggregate counts and costs across all trackers (costs are per-model priced)
+  const tokenCounts = tokenUsageTrackers.reduce(
+    (acc, tracker) => {
+      const counts = tracker.getTokenCounts();
+      acc.inputTokens += counts.inputTokens;
+      acc.cacheCreationTokens += counts.cacheCreationTokens;
+      acc.cacheReadTokens += counts.cacheReadTokens;
+      acc.outputTokens += counts.outputTokens;
+      return acc;
+    },
+    { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0 },
+  );
+  const costs = tokenUsageTrackers.reduce(
+    (acc, tracker) => {
+      const c = tracker.getCosts();
+      acc.inputCost += c.inputCost;
+      acc.cacheCreationCost += c.cacheCreationCost;
+      acc.cacheReadCost += c.cacheReadCost;
+      acc.outputCost += c.outputCost;
+      acc.totalCost += c.totalCost;
+      return acc;
+    },
+    { inputCost: 0, cacheCreationCost: 0, cacheReadCost: 0, outputCost: 0, totalCost: 0 },
+  );
+  const totalTokens = tokenUsageTrackers.reduce((sum, tracker) => sum + tracker.getTotalTokens(), 0);
 
   // Format currency to 2 decimal places
   const formatCurrency = (amount: number): string => {

@@ -1,8 +1,8 @@
-// Lords of Doomspire Building Usage Modal
+// Lords of Doomspire Harvest Phase Modal (harvest tiles, building usage, build action)
 
 import React, { useState } from "react";
-import { BuildingDecision, BuildAction, BuildingUsageDecision } from "@/lib/actionTypes";
-import { BuildingType, MarketResourceType, Player } from "@/lib/types";
+import { HarvestDecision, BuildAction, BuildingUsageDecision } from "@/lib/actionTypes";
+import { BuildingType, MarketResourceType, Player, Position, Tile } from "@/lib/types";
 import { GameSettings } from "@/lib/GameSettings";
 import { ResourceIcon } from "./ResourceIcon";
 import { canAfford } from "@/players/PlayerUtils";
@@ -10,14 +10,27 @@ import { canAfford } from "@/players/PlayerUtils";
 interface BuildingModalProps {
   isOpen: boolean;
   player: Player;
-  onConfirm: (decision: BuildingDecision) => void;
+  savedDiceValues: number[]; // Dice saved for harvesting during the move phase
+  eligibleHarvestTiles: Tile[]; // Tiles the player can currently harvest from
+  onConfirm: (decision: HarvestDecision) => void;
   onCancel: () => void;
 }
 
-type ModalStep = "usage" | "building";
+type ModalStep = "harvest" | "usage" | "building";
 
-export const BuildingModal: React.FC<BuildingModalProps> = ({ isOpen, player, onConfirm, onCancel }) => {
-  const [currentStep, setCurrentStep] = useState<ModalStep>("usage");
+export const BuildingModal: React.FC<BuildingModalProps> = ({
+  isOpen,
+  player,
+  savedDiceValues,
+  eligibleHarvestTiles,
+  onConfirm,
+  onCancel,
+}) => {
+  const savedDiceSum = savedDiceValues.reduce((sum, value) => sum + value, 0);
+  const showHarvestStep = savedDiceValues.length > 0;
+
+  const [currentStep, setCurrentStep] = useState<ModalStep>(showHarvestStep ? "harvest" : "usage");
+  const [selectedHarvestTiles, setSelectedHarvestTiles] = useState<Position[]>([]);
   const [buildingUsageDecision, setBuildingUsageDecision] = useState<BuildingUsageDecision>({});
   const [selectedBuildAction, setSelectedBuildAction] = useState<BuildAction | null>(null);
 
@@ -75,20 +88,33 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({ isOpen, player, on
   };
 
   const handleFinish = () => {
-    const decision: BuildingDecision = {
+    const decision: HarvestDecision = {
+      harvestTiles: selectedHarvestTiles.length > 0 ? selectedHarvestTiles : undefined,
       buildingUsageDecision: Object.keys(buildingUsageDecision).length > 0 ? buildingUsageDecision : undefined,
       buildAction: selectedBuildAction || undefined,
-      reasoning: "Human player building decision",
+      reasoning: "Human player harvest decision",
     };
     onConfirm(decision);
   };
 
   const handleCancel = () => {
+    setSelectedHarvestTiles([]);
     setBuildingUsageDecision({});
     setSelectedBuildAction(null);
     setMarketSales({ food: 0, wood: 0, ore: 0 });
-    setCurrentStep("usage");
+    setCurrentStep(showHarvestStep ? "harvest" : "usage");
     onCancel();
+  };
+
+  const toggleHarvestTile = (position: Position) => {
+    const existingIndex = selectedHarvestTiles.findIndex(
+      (pos) => pos.row === position.row && pos.col === position.col,
+    );
+    if (existingIndex !== -1) {
+      setSelectedHarvestTiles(selectedHarvestTiles.filter((_, index) => index !== existingIndex));
+    } else if (selectedHarvestTiles.length < savedDiceSum) {
+      setSelectedHarvestTiles([...selectedHarvestTiles, position]);
+    }
   };
 
   const getAvailableBuildActions = (): {
@@ -178,6 +204,103 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({ isOpen, player, on
 
     return available;
   };
+
+  const renderHarvestStep = () => (
+    <div>
+      <h3 style={{ marginTop: 0, color: "#2c3e50", textAlign: "center", marginBottom: "16px" }}>🌾 Harvest</h3>
+
+      <div style={{ marginBottom: "16px", padding: "12px", backgroundColor: "#fff3cd", borderRadius: "6px" }}>
+        You saved dice {savedDiceValues.map((die) => `[${die}]`).join(" + ")} (total value {savedDiceSum}).
+        Select up to {savedDiceSum} tile{savedDiceSum !== 1 ? "s" : ""} to harvest from.
+      </div>
+
+      {eligibleHarvestTiles.length === 0 ? (
+        <div
+          style={{
+            padding: "20px",
+            textAlign: "center",
+            color: "#6c757d",
+            fontSize: "14px",
+            fontStyle: "italic",
+          }}
+        >
+          There are no tiles you can currently harvest from.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: "8px", marginBottom: "20px" }}>
+          {eligibleHarvestTiles.map((tile) => {
+            const isSelected = selectedHarvestTiles.some(
+              (pos) => pos.row === tile.position.row && pos.col === tile.position.col,
+            );
+            const atLimit = !isSelected && selectedHarvestTiles.length >= savedDiceSum;
+            return (
+              <div
+                key={`${tile.position.row}-${tile.position.col}`}
+                onClick={() => !atLimit && toggleHarvestTile(tile.position)}
+                style={{
+                  padding: "10px 12px",
+                  border: `2px solid ${isSelected ? "#f39c12" : "#dee2e6"}`,
+                  borderRadius: "6px",
+                  backgroundColor: isSelected ? "#fff8e6" : atLimit ? "#f8f9fa" : "white",
+                  cursor: atLimit ? "not-allowed" : "pointer",
+                  opacity: atLimit ? 0.6 : 1,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span style={{ fontWeight: "bold", color: "#2c3e50" }}>
+                  Tile ({tile.position.row}, {tile.position.col})
+                </span>
+                <span style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  {Object.entries(tile.resources || {})
+                    .filter(([, amount]) => (amount || 0) > 0)
+                    .map(([resource, amount]) => (
+                      <span key={resource} style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+                        <ResourceIcon resource={resource as any} size="s" />
+                        <span style={{ fontSize: "13px", fontWeight: "bold" }}>{amount}</span>
+                      </span>
+                    ))}
+                  {isSelected && <span style={{ color: "#f39c12", fontWeight: "bold" }}>✓</span>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+        <button
+          onClick={handleCancel}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#6c757d",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => setCurrentStep("usage")}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Next: Use Buildings
+        </button>
+      </div>
+    </div>
+  );
 
   const renderUsageStep = () => (
     <div>
@@ -369,35 +492,55 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({ isOpen, player, on
       </div>
 
       {/* Buttons */}
-      <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-        <button
-          onClick={handleCancel}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#6c757d",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontSize: "14px",
-          }}
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleUsageNext}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontSize: "14px",
-          }}
-        >
-          Next: Build
-        </button>
+      <div style={{ display: "flex", gap: "12px", justifyContent: "space-between" }}>
+        <div>
+          {showHarvestStep && (
+            <button
+              onClick={() => setCurrentStep("harvest")}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#6c757d",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              Back
+            </button>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button
+            onClick={handleCancel}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#6c757d",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUsageNext}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px",
+            }}
+          >
+            Next: Build
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -590,7 +733,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({ isOpen, player, on
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {currentStep === "usage" ? renderUsageStep() : renderBuildingStep()}
+        {currentStep === "harvest" ? renderHarvestStep() : currentStep === "usage" ? renderUsageStep() : renderBuildingStep()}
       </div>
     </div>
   );

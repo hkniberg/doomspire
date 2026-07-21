@@ -5,7 +5,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { GameMaster, GameMasterConfig } from "../engine/GameMaster";
 import { FileLoader } from "../lib/templateProcessor";
-import { Claude } from "../llm/claude";
+import { Claude, CLAUDE_MODELS, ClaudeModel, DEFAULT_CLAUDE_MODEL } from "../llm/claude";
 import { ClaudePlayerAgent } from "../players/ClaudePlayer";
 import { GoalPlayer } from "../players/GoalPlayer";
 import { PlayerAgent } from "../players/PlayerAgent";
@@ -17,6 +17,7 @@ dotenv.config();
 export interface PlayerConfig {
   name: string;
   type: "random" | "claude" | "goal";
+  model?: ClaudeModel; // Only relevant for claude players
 }
 
 export interface CLIConfig {
@@ -102,7 +103,7 @@ export class CLIRunner {
         // Load system prompt from template
         const systemPrompt = await templateProcessor.processTemplate("SystemPrompt", {});
 
-        const claude = new Claude(apiKey, systemPrompt);
+        const claude = new Claude(apiKey, systemPrompt, config.model ?? DEFAULT_CLAUDE_MODEL);
         return new ClaudePlayerAgent(config.name, claude, templateProcessor);
       case "goal":
         return new GoalPlayer(config.name);
@@ -111,12 +112,15 @@ export class CLIRunner {
     }
   }
 
+  // Matches player specifications like p1=random, p2=claude, p3=goal,
+  // and claude with an explicit model like p2=claude:opus
+  private static readonly PLAYER_ARG_REGEX = /^p([1-4])=(random|goal|claude(?::(haiku|sonnet|opus|fable))?)$/;
+
   private static parsePlayerArgs(args: string[]): PlayerConfig[] {
     const playerConfigs: PlayerConfig[] = [];
     const defaultNames = ["Alice", "Bob", "Charlie", "Diana"];
 
-    // Look for player specifications like p1=random, p2=claude, p3=goal, etc.
-    const playerArgs = args.filter((arg) => arg.match(/^p[1-4]=(random|claude|goal)$/));
+    const playerArgs = args.filter((arg) => arg.match(this.PLAYER_ARG_REGEX));
 
     if (playerArgs.length === 0) {
       // No player specifications, default to all random players
@@ -130,13 +134,17 @@ export class CLIRunner {
 
     // Override with specified player types
     for (const arg of playerArgs) {
-      const match = arg.match(/^p([1-4])=(random|claude|goal)$/);
+      const match = arg.match(this.PLAYER_ARG_REGEX);
       if (match) {
         const playerIndex = parseInt(match[1]) - 1;
-        const playerType = match[2] as "random" | "claude" | "goal";
+        const playerType = (match[2].startsWith("claude") ? "claude" : match[2]) as "random" | "claude" | "goal";
+        const model = match[3] as ClaudeModel | undefined;
 
         if (playerIndex >= 0 && playerIndex < 4) {
           playerConfigs[playerIndex].type = playerType;
+          if (playerType === "claude") {
+            playerConfigs[playerIndex].model = model ?? DEFAULT_CLAUDE_MODEL;
+          }
         }
       }
     }
@@ -235,7 +243,8 @@ export class CLIRunner {
 
     console.log("Player Configuration:");
     playerConfigs.forEach((config, index) => {
-      console.log(`  Player ${index + 1}: ${config.name} (${config.type})`);
+      const typeLabel = config.type === "claude" ? `claude (${CLAUDE_MODELS[config.model ?? DEFAULT_CLAUDE_MODEL]})` : config.type;
+      console.log(`  Player ${index + 1}: ${config.name} (${typeLabel})`);
     });
     console.log();
 
@@ -297,7 +306,8 @@ export class CLIRunner {
 
     console.log("Player Configuration:");
     playerConfigs.forEach((config, index) => {
-      console.log(`  Player ${index + 1}: ${config.name} (${config.type})`);
+      const typeLabel = config.type === "claude" ? `claude (${CLAUDE_MODELS[config.model ?? DEFAULT_CLAUDE_MODEL]})` : config.type;
+      console.log(`  Player ${index + 1}: ${config.name} (${typeLabel})`);
     });
     console.log();
 
@@ -362,7 +372,8 @@ export class CLIRunner {
 
     console.log("Player Configuration:");
     playerConfigs.forEach((config, index) => {
-      console.log(`  Player ${index + 1}: ${config.name} (${config.type})`);
+      const typeLabel = config.type === "claude" ? `claude (${CLAUDE_MODELS[config.model ?? DEFAULT_CLAUDE_MODEL]})` : config.type;
+      console.log(`  Player ${index + 1}: ${config.name} (${typeLabel})`);
     });
     console.log();
 
@@ -484,7 +495,7 @@ export class CLIRunner {
           break;
         // Skip player arguments as they're already parsed
         default:
-          if (args[i].match(/^p[1-4]=(random|claude)$/)) {
+          if (args[i].match(this.PLAYER_ARG_REGEX)) {
             // Skip player arguments
             continue;
           }

@@ -216,7 +216,7 @@ export function championHasTraderItem(champion: Champion, itemId: string): boole
 }
 
 /**
- * Calculate the item carrying capacity for a champion
+ * Calculate the item carrying capacity for a champion (in slots)
  * Base capacity is 2, backpack adds 2 more (total 4 including the backpack itself)
  */
 export function getChampionItemCapacity(champion: Champion): number {
@@ -226,11 +226,25 @@ export function getChampionItemCapacity(champion: Champion): number {
 }
 
 /**
- * Check if a champion can carry more items
+ * How many item slots an item occupies (the Löng Swörd takes up 2 slots)
  */
-export function canChampionCarryMoreItems(champion: Champion): boolean {
+export function getItemSlotSize(item: CarriableItem): number {
+  return item.treasureCard?.id === "long-sword" ? 2 : 1;
+}
+
+/**
+ * How many item slots a champion is currently using
+ */
+export function getChampionUsedItemSlots(champion: Champion): number {
+  return champion.items.reduce((sum, item) => sum + getItemSlotSize(item), 0);
+}
+
+/**
+ * Check if a champion can carry another item (of the given slot size, default 1)
+ */
+export function canChampionCarryMoreItems(champion: Champion, newItemSlots: number = 1): boolean {
   const capacity = getChampionItemCapacity(champion);
-  return champion.items.length < capacity;
+  return getChampionUsedItemSlots(champion) + newItemSlots <= capacity;
 }
 
 // Removed canAffordBuilding - use canAfford(player, GameSettings.BUILDING_COST) instead

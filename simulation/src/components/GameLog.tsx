@@ -1,4 +1,4 @@
-import { GameLogEntry, GameLogEntryType, Player } from "@/lib/types";
+import { GameLogEntry, GameLogEntryType, GamePhase, Player } from "@/lib/types";
 import React, { useState } from "react";
 import { LuCopy, LuDownload, LuMaximize2, LuMinimize2 } from "react-icons/lu";
 import { PlayerFilter } from "./PlayerFilter";
@@ -9,73 +9,44 @@ interface GameLogProps {
   players?: Player[];
 }
 
-interface GroupedLogEntry {
+const PHASE_LABELS: Record<GamePhase, string> = {
+  fate: "Fate Phase",
+  roll: "Roll Phase",
+  move: "Move Phase",
+  harvest: "Harvest Phase",
+};
+
+// A consecutive run of log entries with the same phase and player attribution.
+// Table-wide entries (fate phase, roll phase) have no playerName.
+interface LogBlock {
+  phase: GamePhase;
+  playerName?: string;
+  entries: { entry: GameLogEntry; key: number }[];
+}
+
+interface RoundGroup {
   round: number;
-  entries: GameLogEntry[];
+  blocks: LogBlock[];
 }
 
-interface PlayerGroupedEntry {
-  round: number;
-  playerGroups: {
-    playerName: string;
-    entries: GameLogEntry[];
-  }[];
-}
-
-// Helper function to group log entries by round and then by player
-function groupGameLogEntriesByRoundAndPlayer(entries: GameLogEntry[]): PlayerGroupedEntry[] {
-  const roundGroups = entries.reduce(
-    (acc, entry) => {
-      if (!acc[entry.round]) {
-        acc[entry.round] = [];
-      }
-      acc[entry.round].push(entry);
-      return acc;
-    },
-    {} as Record<number, GameLogEntry[]>,
-  );
-
-  return Object.entries(roundGroups)
-    .map(([round, roundEntries]) => {
-      // Group entries within the round by player
-      const playerGroups = roundEntries.reduce(
-        (acc, entry) => {
-          if (!acc[entry.playerName]) {
-            acc[entry.playerName] = [];
-          }
-          acc[entry.playerName].push(entry);
-          return acc;
-        },
-        {} as Record<string, GameLogEntry[]>,
-      );
-
-      return {
-        round: parseInt(round),
-        playerGroups: Object.entries(playerGroups).map(([playerName, entries]) => ({
-          playerName,
-          entries,
-        })),
-      };
-    })
-    .sort((a, b) => a.round - b.round);
-}
-
-// Helper function to group log entries by round (for markdown export)
-function groupGameLogEntriesByRound(entries: GameLogEntry[]): GroupedLogEntry[] {
-  const grouped = entries.reduce(
-    (acc, entry) => {
-      if (!acc[entry.round]) {
-        acc[entry.round] = [];
-      }
-      acc[entry.round].push(entry);
-      return acc;
-    },
-    {} as Record<number, GameLogEntry[]>,
-  );
-
-  return Object.entries(grouped)
-    .map(([round, entries]) => ({ round: parseInt(round), entries }))
-    .sort((a, b) => a.round - b.round);
+// Group log entries sequentially: by round, then into consecutive blocks per phase and player.
+// This preserves the actual order of events within a round.
+function groupGameLogEntries(entries: GameLogEntry[]): RoundGroup[] {
+  const rounds: RoundGroup[] = [];
+  entries.forEach((entry, index) => {
+    let round = rounds[rounds.length - 1];
+    if (!round || round.round !== entry.round) {
+      round = { round: entry.round, blocks: [] };
+      rounds.push(round);
+    }
+    let block = round.blocks[round.blocks.length - 1];
+    if (!block || block.phase !== entry.phase || block.playerName !== entry.playerName) {
+      block = { phase: entry.phase, playerName: entry.playerName, entries: [] };
+      round.blocks.push(block);
+    }
+    block.entries.push({ entry, key: index });
+  });
+  return rounds;
 }
 
 // Helper function to format a single log entry without player name
@@ -91,12 +62,6 @@ function getThinkingPreview(content: string, maxWords: number = 8): string {
     return content;
   }
   return words.slice(0, maxWords).join(" ") + "...";
-}
-
-// Helper function to format a single log entry with player name (for markdown)
-function formatGameLogEntry(entry: GameLogEntry): string {
-  const typeEmoji = getEntryEmoji(entry.type);
-  return `${typeEmoji} ${entry.playerName}: ${entry.content}`;
 }
 
 // Helper function to get emoji for entry type
@@ -171,22 +136,32 @@ export const GameLog: React.FC<GameLogProps> = ({ gameLog, isVisible, players = 
     return null;
   }
 
-  // Filter game log entries based on selected player
-  const filteredGameLog = selectedPlayer ? gameLog.filter((entry) => entry.playerName === selectedPlayer) : gameLog;
+  // Filter game log entries based on selected player.
+  // Table-wide entries (no playerName, e.g. fate and roll phase) are always included for context.
+  const filteredGameLog = selectedPlayer
+    ? gameLog.filter((entry) => entry.playerName === undefined || entry.playerName === selectedPlayer)
+    : gameLog;
 
   const convertToMarkdown = (): string => {
     let markdown = "# Game Log\n\n";
     // Filter out thinking entries from markdown export
     const filteredGameLogForExport = filteredGameLog.filter((entry) => entry.type !== "thinking");
-    const groupedEntries = groupGameLogEntriesByRoundAndPlayer(filteredGameLogForExport);
+    const groupedEntries = groupGameLogEntries(filteredGameLogForExport);
 
-    groupedEntries.forEach(({ round, playerGroups }) => {
+    groupedEntries.forEach(({ round, blocks }) => {
       markdown += `## Round ${round}\n\n`;
 
-      playerGroups.forEach(({ playerName, entries }) => {
-        markdown += `### ${playerName}\n\n`;
+      let previousPhase: GamePhase | null = null;
+      blocks.forEach(({ phase, playerName, entries }) => {
+        if (phase !== previousPhase) {
+          markdown += `### ${PHASE_LABELS[phase]}\n\n`;
+          previousPhase = phase;
+        }
+        if (playerName) {
+          markdown += `#### ${playerName}\n\n`;
+        }
 
-        entries.forEach((entry) => {
+        entries.forEach(({ entry }) => {
           const typeEmoji = getEntryEmoji(entry.type);
           const content = entry.content;
 
@@ -266,7 +241,7 @@ export const GameLog: React.FC<GameLogProps> = ({ gameLog, isVisible, players = 
     zIndex: isMaximized ? 1000 : "auto",
   };
 
-  const groupedEntries = groupGameLogEntriesByRoundAndPlayer(filteredGameLog);
+  const groupedEntries = groupGameLogEntries(filteredGameLog);
 
   return (
     <div style={containerStyle}>
@@ -324,112 +299,136 @@ export const GameLog: React.FC<GameLogProps> = ({ gameLog, isVisible, players = 
           lineHeight: "1.4",
         }}
       >
-        {groupedEntries.map(({ round, playerGroups }) => (
-          <div
-            key={round}
-            style={{
-              marginBottom: "15px",
-              padding: "10px",
-              backgroundColor: "#f8f9fa",
-              borderRadius: "4px",
-              border: "1px solid #e9ecef",
-            }}
-          >
+        {groupedEntries.map(({ round, blocks }) => {
+          let previousPhase: GamePhase | null = null;
+          return (
             <div
+              key={round}
               style={{
-                fontWeight: "bold",
-                color: "#2c3e50",
-                marginBottom: "8px",
-                fontSize: "14px",
+                marginBottom: "15px",
+                padding: "10px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "4px",
+                border: "1px solid #e9ecef",
               }}
             >
-              🎲 Round {round}
-            </div>
-            {playerGroups.map(({ playerName, entries }) => (
-              <div key={playerName} style={{ marginBottom: "8px" }}>
-                <div
-                  style={{
-                    fontWeight: "bold",
-                    color: "#495057",
-                    marginBottom: "4px",
-                    fontSize: "13px",
-                  }}
-                >
-                  {playerName}:
-                </div>
-                {entries.map((entry, entryIndex) => {
-                  const entryKey = round * 10000 + entryIndex; // Create unique key for each entry
-                  const isThinking = entry.type === "thinking";
-                  const isExpanded = expandedThinking.has(entryKey);
-
-                  const toggleExpanded = () => {
-                    const newExpanded = new Set(expandedThinking);
-                    if (isExpanded) {
-                      newExpanded.delete(entryKey);
-                    } else {
-                      newExpanded.add(entryKey);
-                    }
-                    setExpandedThinking(newExpanded);
-                  };
-
-                  if (isThinking) {
-                    const preview = getThinkingPreview(entry.content);
-                    const typeEmoji = getEntryEmoji(entry.type);
-                    return (
+              <div
+                style={{
+                  fontWeight: "bold",
+                  color: "#2c3e50",
+                  marginBottom: "8px",
+                  fontSize: "14px",
+                }}
+              >
+                🎲 Round {round}
+              </div>
+              {blocks.map(({ phase, playerName, entries }, blockIndex) => {
+                const showPhaseHeading = phase !== previousPhase;
+                previousPhase = phase;
+                return (
+                  <div key={blockIndex} style={{ marginBottom: "8px" }}>
+                    {showPhaseHeading && (
                       <div
-                        key={entryIndex}
                         style={{
-                          marginBottom: "2px",
-                          marginLeft: "16px",
-                          color: getEntryColor(entry.type),
-                          fontStyle: "italic",
-                          whiteSpace: isExpanded ? "pre-wrap" : "normal",
+                          fontWeight: "bold",
+                          color: "#2c3e50",
+                          marginBottom: "4px",
+                          fontSize: "13px",
+                          borderBottom: "1px solid #dee2e6",
+                          paddingBottom: "2px",
                         }}
                       >
-                        <span>
-                          {typeEmoji} {isExpanded ? entry.content : preview}
-                        </span>
-                        {entry.content.split(" ").length > 8 && (
-                          <button
-                            onClick={toggleExpanded}
+                        {PHASE_LABELS[phase]}
+                      </div>
+                    )}
+                    {playerName && (
+                      <div
+                        style={{
+                          fontWeight: "bold",
+                          color: "#495057",
+                          marginBottom: "4px",
+                          marginLeft: "8px",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {playerName}:
+                      </div>
+                    )}
+                    {entries.map(({ entry, key: entryKey }) => {
+                      const isThinking = entry.type === "thinking";
+                      const isExpanded = expandedThinking.has(entryKey);
+                      const indent = playerName ? "24px" : "16px";
+
+                      const toggleExpanded = () => {
+                        const newExpanded = new Set(expandedThinking);
+                        if (isExpanded) {
+                          newExpanded.delete(entryKey);
+                        } else {
+                          newExpanded.add(entryKey);
+                        }
+                        setExpandedThinking(newExpanded);
+                      };
+
+                      if (isThinking) {
+                        const preview = getThinkingPreview(entry.content);
+                        const typeEmoji = getEntryEmoji(entry.type);
+                        return (
+                          <div
+                            key={entryKey}
                             style={{
-                              marginLeft: "8px",
-                              padding: "2px 6px",
-                              fontSize: "10px",
-                              backgroundColor: "transparent",
-                              color: "#6c757d",
-                              border: "1px solid #6c757d",
-                              borderRadius: "3px",
-                              cursor: "pointer",
+                              marginBottom: "2px",
+                              marginLeft: indent,
+                              color: getEntryColor(entry.type),
+                              fontStyle: "italic",
+                              whiteSpace: isExpanded ? "pre-wrap" : "normal",
                             }}
                           >
-                            {isExpanded ? "less" : "more"}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  } else {
-                    const formattedEntry = formatGameLogEntryContent(entry);
-                    return (
-                      <div
-                        key={entryIndex}
-                        style={{
-                          marginBottom: "2px",
-                          marginLeft: "16px",
-                          color: getEntryColor(entry.type),
-                          fontStyle: entry.type === "assessment" ? "italic" : "normal",
-                          fontWeight: entry.type === "system" ? "bold" : "normal",
-                        }}
-                      >
-                        {formattedEntry}
-                      </div>
-                    );
-                  }
-                })}
-              </div>
-            ))}
-          </div>
-        ))}
+                            <span>
+                              {typeEmoji} {isExpanded ? entry.content : preview}
+                            </span>
+                            {entry.content.split(" ").length > 8 && (
+                              <button
+                                onClick={toggleExpanded}
+                                style={{
+                                  marginLeft: "8px",
+                                  padding: "2px 6px",
+                                  fontSize: "10px",
+                                  backgroundColor: "transparent",
+                                  color: "#6c757d",
+                                  border: "1px solid #6c757d",
+                                  borderRadius: "3px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {isExpanded ? "less" : "more"}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      } else {
+                        const formattedEntry = formatGameLogEntryContent(entry);
+                        return (
+                          <div
+                            key={entryKey}
+                            style={{
+                              marginBottom: "2px",
+                              marginLeft: indent,
+                              color: getEntryColor(entry.type),
+                              fontStyle: entry.type === "assessment" ? "italic" : "normal",
+                              fontWeight: entry.type === "system" ? "bold" : "normal",
+                            }}
+                          >
+                            {formattedEntry}
+                          </div>
+                        );
+                      }
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

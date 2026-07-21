@@ -1,7 +1,8 @@
-import { AdventureThemeType, MarketResourceType, OceanPosition, Position } from './types';
+import { MarketResourceType, OceanPosition, Position } from './types';
 
 export interface ChampionAction {
   diceValueUsed: number;
+  diceValuesUsed?: number[]; // Optional: combine multiple dice into one longer movement (sprinting). If set, diceValueUsed is ignored.
   championId: number;
   movementPathIncludingStartPosition?: Position[];
   tileAction?: TileAction;
@@ -14,8 +15,8 @@ export interface TileAction {
   useTemple?: boolean;
   pickUpItems?: string[]; // Array of item IDs to pick up from the tile
   dropItems?: string[]; // Array of item IDs to drop on the tile
-  conquerWithMight?: boolean; // Conquer tile using military might (costs 1 might)
-  inciteRevolt?: boolean; // Incite revolt using fame (costs 1 fame, frees up tile but doesn't claim it)
+  conquer?: boolean; // Conquer another player's unprotected resource tile by force (costs 2 fame)
+  bribe?: boolean; // Take over another player's unprotected resource tile through bribery (costs 2 gold)
 }
 
 export interface BoatAction {
@@ -27,9 +28,12 @@ export interface BoatAction {
   championTileAction?: TileAction;
 }
 
+/**
+ * Move phase: save one or more dice for the harvest phase.
+ * Which tiles to harvest from is decided later, during the harvest phase (see HarvestDecision).
+ */
 export interface HarvestAction {
   diceValuesUsed: number[];
-  tilePositions: Position[]; // Tiles to harvest from
 }
 
 // Build action is now just a string representing the type of build action
@@ -41,8 +45,13 @@ export interface BuildingUsageDecision {
   useFletcher?: boolean;
 }
 
-// New combined interface for harvest phase decisions
-export interface BuildingDecision {
+/**
+ * The harvest phase decision, made by each player simultaneously during the harvest phase:
+ * which tiles to harvest from (with dice saved during the move phase),
+ * which buildings to use, and which build action to perform.
+ */
+export interface HarvestDecision {
+  harvestTiles?: Position[]; // Tiles to harvest from. Max number of tiles = total value of saved dice.
   buildingUsageDecision?: BuildingUsageDecision;
   buildAction?: BuildAction;
   reasoning?: string;

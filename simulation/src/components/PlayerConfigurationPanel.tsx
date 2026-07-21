@@ -1,10 +1,12 @@
 import React from "react";
+import { ClaudeModel, DEFAULT_CLAUDE_MODEL } from "@/llm/claude";
 
 type PlayerType = "random" | "claude" | "human";
 
 interface PlayerConfig {
   name: string;
   type: PlayerType;
+  model?: ClaudeModel; // Only relevant for claude players
 }
 
 interface GameConfig {
@@ -167,6 +169,36 @@ export function PlayerConfigurationPanel({
                 <option value="human">Human Player</option>
               </select>
             </div>
+
+            {config.type === "claude" && (
+              <div style={{ marginTop: "10px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "5px",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Model:
+                </label>
+                <select
+                  value={config.model ?? DEFAULT_CLAUDE_MODEL}
+                  onChange={(e) => onUpdatePlayerConfig(index, "model", e.target.value as ClaudeModel)}
+                  style={{
+                    width: "100%",
+                    padding: "6px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                  }}
+                >
+                  <option value="haiku">Claude Haiku (fastest, cheapest)</option>
+                  <option value="sonnet">Claude Sonnet (default)</option>
+                  <option value="opus">Claude Opus (stronger, pricier)</option>
+                  <option value="fable">Claude Fable (strongest, priciest)</option>
+                </select>
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -89,7 +89,6 @@ export async function handleThugAmbush(
         bandit,
         currentPlayer,
         championId,
-        champion.position,
         logFn
       );
 

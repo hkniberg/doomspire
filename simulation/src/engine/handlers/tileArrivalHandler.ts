@@ -1,10 +1,11 @@
 import { GameState } from "@/game/GameState";
 import { GameSettings } from "@/lib/GameSettings";
-import { CarriableItem, GameLogEntry, Player, Tile, ResourceType, DecisionContext, DecisionOption } from "@/lib/types";
+import { CarriableItem, GameLogEntry, Player, ResourceType, Tile } from "@/lib/types";
 import { formatResources } from "@/lib/utils";
 import { PlayerAgent } from "@/players/PlayerAgent";
-import { canChampionCarryMoreItems } from "@/players/PlayerUtils";
+import { canChampionCarryMoreItems, getItemSlotSize } from "@/players/PlayerUtils";
 import {
+  GetPlayerAgent,
   resolveChampionVsChampionCombat,
   resolveChampionVsDragonEncounter,
   resolveChampionVsMonsterCombat
@@ -20,84 +21,50 @@ export interface MonsterCombatResult {
   championWon?: boolean;
 }
 
-export interface DragonCombatResult {
-  combatOccurred: boolean;
-  championWon?: boolean;
-  championDefeated?: boolean;
-  healingCost?: "gold" | "fame" | "none";
-  combatDetails?: string;
-}
-
 export interface DoomspireResult {
   entered: boolean;
-  alternativeVictory?: {
-    type: "Fame Victory" | "Gold Victory" | "Economic Victory" | "Fame Victory (Final Impression)" | "Gold Victory (Final Impression)" | "Economic Victory (Final Impression)";
-    playerName: string;
-  };
-  dragonCombat?: {
-    championWon: boolean;
-    championDefeated?: boolean;
-    combatVictory?: {
-      playerName: string;
-    };
-    combatDetails: string;
-  };
-  dragonImpressed?: {
-    playerName: string;
-    impressionType: string;
-    impressionCount: number;
-    needsResourceChoice: boolean;
-  };
+  impressed?: boolean;
+  gameWon?: boolean; // Player reached the required number of dragon impressions
+  championEaten?: boolean;
 }
-
-/**
- * Generate resource choice options for dragon impression rewards
- */
-function generateResourceChoiceOptions(): DecisionOption[] {
-  const resourceTypes: ResourceType[] = ["gold", "food", "wood", "ore"];
-  const options: DecisionOption[] = [];
-
-  // Generate all combinations of 2 resources (including same resource twice)
-  for (let i = 0; i < resourceTypes.length; i++) {
-    for (let j = i; j < resourceTypes.length; j++) {
-      const resource1 = resourceTypes[i];
-      const resource2 = resourceTypes[j];
-      const optionId = `${resource1}-${resource2}`;
-      const description = resource1 === resource2
-        ? `2 ${resource1}`
-        : `1 ${resource1} + 1 ${resource2}`;
-
-      options.push({
-        id: optionId,
-        description
-      });
-    }
-  }
-
-  return options;
-}
-
-/**
- * Apply the chosen resource reward to the player
- */
-function applyResourceChoice(player: Player, choice: string, logFn: (type: string, content: string) => void): void {
-  const [resource1, resource2] = choice.split('-') as ResourceType[];
-
-  player.resources[resource1] += 1;
-  player.resources[resource2] += 1;
-
-  const description = resource1 === resource2
-    ? `2 ${resource1}`
-    : `1 ${resource1} + 1 ${resource2}`;
-
-  logFn("event", `${player.name} received ${description} from the dragon as reward for impressing it!`);
-}
-
-
 
 export interface SpecialTileResult {
   interactionOccurred: boolean;
   adventureCardDrawn?: boolean;
+}
+
+/**
+ * Create the dragon's treasure hoard when Doomspire is revealed:
+ * 3 of each resource type (12 in total), randomly organized into 3 stacks of 4.
+ */
+function createDragonTreasureHoard(tile: Tile, logFn: (type: string, content: string) => void): void {
+  const pool: ResourceType[] = [];
+  for (const type of ["food", "wood", "ore", "gold"] as ResourceType[]) {
+    for (let i = 0; i < GameSettings.DRAGON_TREASURE_PER_RESOURCE_TYPE; i++) {
+      pool.push(type);
+    }
+  }
+
+  // Shuffle the pool
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  // Split into stacks
+  const stackCount = GameSettings.DRAGON_TREASURE_STACK_COUNT;
+  const stackSize = pool.length / stackCount;
+  const stacks: Record<ResourceType, number>[] = [];
+  for (let s = 0; s < stackCount; s++) {
+    const stack: Record<ResourceType, number> = { food: 0, wood: 0, ore: 0, gold: 0 };
+    for (let i = 0; i < stackSize; i++) {
+      stack[pool[s * stackSize + i]] += 1;
+    }
+    stacks.push(stack);
+  }
+
+  tile.treasureStacks = stacks;
+  logFn("event", `The dragon's treasure hoard is revealed: ${stackCount} stacks of ${stackSize} resources each.`);
 }
 
 /**
@@ -113,19 +80,19 @@ export function handleExploration(
     return;
   }
 
-  // Mark tile as explored
+  // Mark tile as explored (only this tile - each tile is flipped individually)
   tile.explored = true;
-
-  // Mark tile group as explored if it has one
-  if (tile.tileGroup) {
-    gameState.board.setTileGroupToExplored(tile.tileGroup);
-  }
 
   // Award fame for exploration
   const fameAwarded = GameSettings.FAME_AWARD_FOR_EXPLORATION;
   player.fame += fameAwarded;
 
   logFn("exploration", `Explored new territory and got ${fameAwarded} fame`);
+
+  // When Doomspire is revealed, the dragon's treasure hoard is also revealed
+  if (tile.tileType === "doomspire") {
+    createDragonTreasureHoard(tile, logFn);
+  }
 }
 
 /**
@@ -140,8 +107,7 @@ export async function handleChampionCombat(
   gameLog: readonly GameLogEntry[],
   logFn: (type: string, content: string) => void,
   thinkingLogger?: (content: string) => void,
-  getPlayerAgent?: (playerName: string) => PlayerAgent | undefined,
-  isActivelyChosen: boolean = true // New parameter to determine if combat was actively chosen
+  getPlayerAgent?: GetPlayerAgent
 ): Promise<ChampionCombatResult> {
   const combatResult = await resolveChampionVsChampionCombat(
     gameState,
@@ -152,8 +118,7 @@ export async function handleChampionCombat(
     gameLog,
     logFn,
     thinkingLogger,
-    getPlayerAgent,
-    isActivelyChosen
+    getPlayerAgent
   );
 
   if (!combatResult.combatOccurred) {
@@ -182,10 +147,10 @@ export async function handleMonsterCombat(
   player: Player,
   championId: number,
   logFn: (type: string, content: string) => void,
-  isActivelyChosen: boolean = true, // New parameter to determine if combat was actively chosen
   playerAgent?: PlayerAgent,
   gameLog?: readonly GameLogEntry[],
-  thinkingLogger?: (content: string) => void
+  thinkingLogger?: (content: string) => void,
+  getPlayerAgent?: GetPlayerAgent
 ): Promise<MonsterCombatResult> {
   const combatResult = await resolveChampionVsMonsterCombat(
     gameState,
@@ -193,10 +158,10 @@ export async function handleMonsterCombat(
     player,
     championId,
     logFn,
-    isActivelyChosen,
     playerAgent,
     gameLog,
-    thinkingLogger
+    thinkingLogger,
+    getPlayerAgent
   );
 
   if (!combatResult.combatOccurred) {
@@ -217,7 +182,7 @@ export async function handleMonsterCombat(
 }
 
 /**
- * Handle arrival at the Doomspire tile (dragon combat and victory conditions)
+ * Handle arrival at the Doomspire tile (impressing the dragon, or dragon combat)
  */
 export async function handleDoomspireTile(
   gameState: GameState,
@@ -225,10 +190,10 @@ export async function handleDoomspireTile(
   player: Player,
   championId: number,
   logFn: (type: string, content: string) => void,
-  isActivelyChosen: boolean = true, // New parameter to determine if combat was actively chosen
   playerAgent?: PlayerAgent,
   gameLog?: readonly GameLogEntry[],
-  thinkingLogger?: (content: string) => void
+  thinkingLogger?: (content: string) => void,
+  getPlayerAgent?: GetPlayerAgent
 ): Promise<DoomspireResult> {
   const dragonEncounter = await resolveChampionVsDragonEncounter(
     gameState,
@@ -236,109 +201,22 @@ export async function handleDoomspireTile(
     player,
     championId,
     logFn,
-    isActivelyChosen,
     playerAgent,
     gameLog,
-    thinkingLogger
+    thinkingLogger,
+    getPlayerAgent
   );
 
   if (!dragonEncounter.encounterOccurred) {
     return { entered: false };
   }
 
-  if (dragonEncounter.alternativeVictory) {
-    return {
-      entered: true,
-      alternativeVictory: dragonEncounter.alternativeVictory
-    };
-  }
-
-  // Handle dragon impression (non-combat) 
-  if (dragonEncounter.dragonImpressed) {
-    const impression = dragonEncounter.dragonImpressed;
-
-    if (impression.needsResourceChoice && playerAgent && gameLog) {
-      // Let player choose 2 resources as reward
-      const resourceOptions = generateResourceChoiceOptions();
-      const decisionContext: DecisionContext = {
-        description: `The dragon is impressed by your ${impression.impressionType.toLowerCase()} and offers you 2 resources of your choice as a reward!`,
-        options: resourceOptions
-      };
-
-      const decision = await playerAgent.makeDecision(gameState, gameLog, decisionContext, thinkingLogger);
-      applyResourceChoice(player, decision.choice, logFn);
-
-      // Send champion home
-      const champion = gameState.getChampion(player.name, championId);
-      if (champion) {
-        champion.position = player.homePosition;
-        logFn("event", `Champion${championId} was flown home by the grateful dragon.`);
-      }
-    }
-
-    return {
-      entered: true,
-      dragonImpressed: impression
-    };
-  }
-
-  if (dragonEncounter.combatResult) {
-    const combatResult = dragonEncounter.combatResult;
-
-    if (combatResult.victory) {
-      // Handle resource choice for combat victories too
-      if (combatResult.needsResourceChoice && playerAgent && gameLog) {
-        const resourceOptions = generateResourceChoiceOptions();
-        const decisionContext: DecisionContext = {
-          description: "The dragon is impressed by your combat prowess and offers you 2 resources of your choice as a reward!",
-          options: resourceOptions
-        };
-
-        const decision = await playerAgent.makeDecision(gameState, gameLog, decisionContext, thinkingLogger);
-        applyResourceChoice(player, decision.choice, logFn);
-
-        // Send champion home
-        const champion = gameState.getChampion(player.name, championId);
-        if (champion) {
-          champion.position = player.homePosition;
-          logFn("event", `Champion${championId} was flown home by the grateful dragon.`);
-        }
-      }
-
-      return {
-        entered: true,
-        dragonCombat: {
-          championWon: true,
-          combatVictory: combatResult.finalImpression ? {
-            playerName: player.name
-          } : undefined,
-          combatDetails: combatResult.combatDetails!
-        }
-      };
-    } else if (combatResult.defeat) {
-      return {
-        entered: true,
-        dragonCombat: {
-          championWon: false,
-          championDefeated: true,
-          combatDetails: combatResult.combatDetails!
-        }
-      };
-    } else if (!combatResult.combatOccurred) {
-      // This handles the case where the champion fled from the dragon
-      return {
-        entered: true,
-        dragonCombat: {
-          championWon: false,
-          championDefeated: false,
-          combatDetails: combatResult.combatDetails || "Champion fled from dragon"
-        }
-      };
-    }
-  }
-
-  // Should not reach here
-  return { entered: false };
+  return {
+    entered: true,
+    impressed: dragonEncounter.impressed,
+    gameWon: dragonEncounter.gameWon,
+    championEaten: dragonEncounter.championEaten
+  };
 }
 
 /**
@@ -364,91 +242,84 @@ export function handleTileClaiming(
     return;
   }
 
-  const currentClaimedCount = gameState.board.findTiles((tile) => tile.claimedBy === player.name).length;
-
-  if (currentClaimedCount >= player.maxClaims) {
-    logFn("event", `Champion${championId} could not claim resource tile (${tile.position.row}, ${tile.position.col}) (max claims reached)`);
-    return;
-  }
-
   // Successful claim
   tile.claimedBy = player.name;
   logFn("event", `Champion${championId} claimed resource tile (${tile.position.row}, ${tile.position.col}), which can provide ${formatResources(tile.resources)}`);
 }
 
 /**
- * Handle conquering and inciting revolt on resource tiles
+ * Handle taking over another player's unprotected resource tile:
+ * - Conquer (2 fame): seize the tile by force
+ * - Bribe (2 gold): take over the tile through corruption
  */
 export function handleTileInteractions(
   gameState: GameState,
   tile: Tile,
   player: Player,
   championId: number,
-  conquerWithMight: boolean,
-  inciteRevolt: boolean,
+  conquer: boolean,
+  bribe: boolean,
   logFn: (type: string, content: string) => void
 ): void {
-  // Only one interaction method can be used
-  if (conquerWithMight && inciteRevolt) {
-    logFn("event", `Champion${championId} cannot use both might and fame interactions on tile (${tile.position.row}, ${tile.position.col})`);
+  // Only one takeover method can be used
+  if (conquer && bribe) {
+    logFn("event", `Champion${championId} cannot both conquer and bribe on tile (${tile.position.row}, ${tile.position.col})`);
     return;
   }
 
-  if (!conquerWithMight && !inciteRevolt) {
+  if (!conquer && !bribe) {
     return;
   }
 
-  // Only resource tiles can be conquered or have revolt incited
+  // Only resource tiles can be taken over
   if (tile.tileType !== "resource") {
-    logFn("event", `Champion${championId} cannot conquer or incite revolt on non-resource tile (${tile.position.row}, ${tile.position.col})`);
+    logFn("event", `Champion${championId} cannot take over non-resource tile (${tile.position.row}, ${tile.position.col})`);
     return;
   }
 
   // Tile must be claimed by another player
   if (tile.claimedBy === undefined || tile.claimedBy === player.name) {
-    logFn("event", `Champion${championId} cannot conquer or incite revolt on unclaimed tile or own tile (${tile.position.row}, ${tile.position.col})`);
+    logFn("event", `Champion${championId} cannot take over unclaimed tile or own tile (${tile.position.row}, ${tile.position.col})`);
     return;
   }
 
   // Check if there are other knights on this tile (these actions should only happen after combat)
   const otherKnightsOnTile = gameState.getOpposingChampionsAtPosition(player.name, tile.position);
   if (otherKnightsOnTile.length > 0) {
-    logFn("event", `Champion${championId} cannot conquer or incite revolt on tile (${tile.position.row}, ${tile.position.col}) - other knights are present`);
+    logFn("event", `Champion${championId} cannot take over tile (${tile.position.row}, ${tile.position.col}) - other knights are present`);
     return;
   }
 
   // Check if the tile is protected by adjacent knights
   if (gameState.isClaimProtected(tile)) {
-    logFn("event", `Champion${championId} cannot conquer or incite revolt on tile (${tile.position.row}, ${tile.position.col}) - protected by adjacent knight of ${tile.claimedBy}`);
+    logFn("event", `Champion${championId} cannot take over tile (${tile.position.row}, ${tile.position.col}) - protected by adjacent knight of ${tile.claimedBy}`);
     return;
   }
 
-  // Handle conquest with might
-  if (conquerWithMight) {
-    if (player.might <= 0) {
-      logFn("event", `Champion${championId} cannot conquer with might - insufficient might (${player.might})`);
+  // Handle conquest with fame
+  if (conquer) {
+    if (player.fame < GameSettings.CONQUER_FAME_COST) {
+      logFn("event", `Champion${championId} cannot conquer - insufficient fame (need ${GameSettings.CONQUER_FAME_COST}, have ${player.fame})`);
       return;
     }
 
-    // Successful conquest with might
     const previousOwner = tile.claimedBy;
     tile.claimedBy = player.name;
-    player.might = Math.max(0, player.might - GameSettings.CONQUEST_MIGHT_COST);
-    logFn("event", `Champion${championId} conquered tile (${tile.position.row}, ${tile.position.col}) from ${previousOwner} using might. New might: ${player.might}`);
+    player.fame -= GameSettings.CONQUER_FAME_COST;
+    logFn("event", `Champion${championId} conquered tile (${tile.position.row}, ${tile.position.col}) from ${previousOwner} by force, sacrificing ${GameSettings.CONQUER_FAME_COST} fame. New fame: ${player.fame}`);
   }
 
-  // Handle inciting revolt with fame
-  if (inciteRevolt) {
-    if (player.fame <= 0) {
-      logFn("event", `Champion${championId} cannot incite revolt - insufficient fame (${player.fame})`);
+  // Handle bribery with gold
+  if (bribe) {
+    if (player.resources.gold < GameSettings.BRIBE_GOLD_COST) {
+      logFn("event", `Champion${championId} cannot bribe - insufficient gold (need ${GameSettings.BRIBE_GOLD_COST}, have ${player.resources.gold})`);
       return;
     }
 
-    // Successful revolt - removes claim but doesn't take over
     const previousOwner = tile.claimedBy;
-    tile.claimedBy = undefined;
-    player.fame = Math.max(0, player.fame - GameSettings.REVOLT_FAME_COST);
-    logFn("event", `Champion${championId} incited revolt on tile (${tile.position.row}, ${tile.position.col}) from ${previousOwner} using fame. Tile is now unclaimed. New fame: ${player.fame}`);
+    tile.claimedBy = player.name;
+    player.resources.gold -= GameSettings.BRIBE_GOLD_COST;
+    logFn("event", `Champion${championId} took over tile (${tile.position.row}, ${tile.position.col}) from ${previousOwner} through bribery, paying ${GameSettings.BRIBE_GOLD_COST} gold`);
   }
 }
 
@@ -564,8 +435,8 @@ export function handleItemManagement(
       continue;
     }
 
-    // Check inventory space
-    if (!canChampionCarryMoreItems(champion)) {
+    // Check inventory space (some items, like the Löng Swörd, take up 2 slots)
+    if (!canChampionCarryMoreItems(champion, getItemSlotSize(itemToPickUpObj))) {
       result.failedPickups.push({
         itemId,
         reason: "Champion inventory is full"
@@ -607,6 +478,14 @@ export function handleMercenaryAction(
     };
   }
 
+  // Special locations can only be used once per round
+  if (player.specialTileUsesThisRound?.mercenary) {
+    return {
+      actionSuccessful: false,
+      reason: "Mercenary camp already used this round (once per round)"
+    };
+  }
+
   if (player.resources.gold < GameSettings.MERCENARY_GOLD_COST) {
     return {
       actionSuccessful: false,
@@ -617,6 +496,7 @@ export function handleMercenaryAction(
   // Successful mercenary purchase
   player.resources.gold -= GameSettings.MERCENARY_GOLD_COST;
   player.might += GameSettings.MERCENARY_MIGHT_REWARD;
+  player.specialTileUsesThisRound = { ...player.specialTileUsesThisRound, mercenary: true };
 
   logFn("event", `Champion ${championId} hired mercenaries for ${GameSettings.MERCENARY_GOLD_COST} gold, gaining ${GameSettings.MERCENARY_MIGHT_REWARD} might`);
 
@@ -652,6 +532,14 @@ export function handleTempleAction(
     };
   }
 
+  // Special locations can only be used once per round
+  if (player.specialTileUsesThisRound?.temple) {
+    return {
+      actionSuccessful: false,
+      reason: "Temple already used this round (once per round)"
+    };
+  }
+
   if (player.fame < GameSettings.TEMPLE_FAME_COST) {
     return {
       actionSuccessful: false,
@@ -662,6 +550,7 @@ export function handleTempleAction(
   // Successful temple sacrifice
   player.fame -= GameSettings.TEMPLE_FAME_COST;
   player.might += GameSettings.TEMPLE_MIGHT_REWARD;
+  player.specialTileUsesThisRound = { ...player.specialTileUsesThisRound, temple: true };
 
   logFn("event", `Champion ${championId} sacrificed ${GameSettings.TEMPLE_FAME_COST} fame at the temple, gaining ${GameSettings.TEMPLE_MIGHT_REWARD} might`);
 

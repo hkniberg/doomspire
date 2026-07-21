@@ -1,16 +1,49 @@
 // Lords of Doomspire Harvest Calculation
 
 import { GameState } from "@/game/GameState";
-import { Position, ResourceType } from "@/lib/types";
-import { formatPosition } from "@/lib/utils";
+import { Position, ResourceType, Tile } from "@/lib/types";
 
 export interface HarvestResult {
   harvestedTileCount: number;
+  harvestedTilePositions: Position[];
   harvestedResources: Record<ResourceType, number>;
 }
 
 /**
- * Calculates the result of a harvest action.
+ * Whether a player can currently harvest from a tile:
+ * - Their own claimed tile, unless it is blockaded
+ * - Another player's tile that they are blockading
+ */
+function canHarvestFrom(gameState: GameState, playerName: string, tile: Tile): boolean {
+  if (!tile.resources || tile.claimedBy === undefined) {
+    return false;
+  }
+
+  const blockader = gameState.getClaimBlockader(tile);
+
+  if (tile.claimedBy === playerName) {
+    // The owner can harvest unless the tile is actually blockaded.
+    // A protected tile (owner has a knight adjacent) cannot be blockaded,
+    // so an opposing knight standing on it does not stop the harvest.
+    return blockader === null;
+  }
+
+  // Tile owned by someone else: can only harvest if this player is blockading it
+  return blockader === playerName;
+}
+
+/**
+ * Get all tiles a player can currently harvest from (own unblockaded claims + tiles they blockade)
+ */
+export function getEligibleHarvestTiles(gameState: GameState, playerName: string): Tile[] {
+  return gameState.board.findTiles((tile) => canHarvestFrom(gameState, playerName, tile));
+}
+
+/**
+ * Calculates the result of harvesting the chosen tiles (decided during the harvest phase).
+ * Tiles are deduplicated, must be eligible, and the number of different tiles is capped
+ * by the total value of the saved dice.
+ *
  * Does not change any state.
  */
 export function calculateHarvest(
@@ -31,78 +64,32 @@ export function calculateHarvest(
     gold: 0,
   };
 
-  // Limit to dice value and warn if trying to harvest more tiles
-  let actualTilePositionsToHarvest = tilePositionsToHarvest;
-  if (tilePositionsToHarvest.length > totalDiceValueUsed) {
-    actualTilePositionsToHarvest = tilePositionsToHarvest.slice(0, totalDiceValueUsed);
-    console.log(`Attempted to harvest ${tilePositionsToHarvest.length} tiles with total dice value ${totalDiceValueUsed}, only harvesting first ${totalDiceValueUsed}`);
+  const eligibleTiles = getEligibleHarvestTiles(gameState, playerName);
+  const selectedTiles: Tile[] = [];
+
+  const isSelected = (tile: Tile) =>
+    selectedTiles.some(t => t.position.row === tile.position.row && t.position.col === tile.position.col);
+
+  // Chosen tiles, where eligible (deduplicated - die value = number of DIFFERENT tiles)
+  for (const position of tilePositionsToHarvest) {
+    if (selectedTiles.length >= totalDiceValueUsed) break;
+    const tile = eligibleTiles.find(t => t.position.row === position.row && t.position.col === position.col);
+    if (tile && !isSelected(tile)) {
+      selectedTiles.push(tile);
+    }
   }
 
-  let harvestedTileCount = 0;
-
-  for (const position of actualTilePositionsToHarvest) {
-    const tile = gameState.getTile(position);
-    if (!tile) {
-      console.log(`Cannot harvest from ${formatPosition(position)}: tile not found`);
-      continue;
-    }
-
-    // Check if player owns this tile or is blockading it
-    const isOwned = tile.claimedBy === playerName;
-    const isBlockading = !isOwned && tile.claimedBy !== undefined && tile.claimedBy !== playerName;
-
-    if (!isOwned && !isBlockading) {
-      console.log(`Cannot harvest from ${formatPosition(position)}: tile not owned by ${playerName} and not blockaded`);
-      continue;
-    }
-
-    // If owned, check if there are opposing champions blocking this tile
-    if (isOwned) {
-      const opposingChampions = gameState.getOpposingChampionsAtPosition(playerName, position);
-      if (opposingChampions.length > 0) {
-        console.log(`Cannot harvest from ${formatPosition(position)}: blocked by opposing champion`);
-        continue;
-      }
-    }
-
-    // If blockading, check if player has a champion on this tile
-    if (isBlockading) {
-      const player = gameState.getPlayer(playerName);
-      if (!player) {
-        console.log(`Cannot harvest from ${formatPosition(position)}: player not found`);
-        continue;
-      }
-
-      const playerChampionsOnTile = player.champions.filter(champion =>
-        champion.position.row === position.row && champion.position.col === position.col
-      );
-      if (playerChampionsOnTile.length === 0) {
-        console.log(`Cannot harvest from ${formatPosition(position)}: not blockading this tile`);
-        continue;
-      }
-
-      // Check if the tile is protected by adjacent knights of the owner
-      if (gameState.isClaimProtected(tile)) {
-        console.log(`Cannot harvest from ${formatPosition(position)}: tile is protected by adjacent knights`);
-        continue;
-      }
-    }
-
-    // Harvest all resources from this tile
-    if (tile.resources) {
-      harvestedResources.food += tile.resources.food || 0;
-      harvestedResources.wood += tile.resources.wood || 0;
-      harvestedResources.ore += tile.resources.ore || 0;
-      harvestedResources.gold += tile.resources.gold || 0;
-      harvestedTileCount++;
-      console.log(`Harvested from ${formatPosition(position)}: ${isOwned ? 'owned tile' : 'blockaded tile'}`);
-    } else {
-      console.log(`Cannot harvest from ${formatPosition(position)}: tile has no resources`);
-    }
+  // Harvest all resources from each selected tile
+  for (const tile of selectedTiles) {
+    harvestedResources.food += tile.resources!.food || 0;
+    harvestedResources.wood += tile.resources!.wood || 0;
+    harvestedResources.ore += tile.resources!.ore || 0;
+    harvestedResources.gold += tile.resources!.gold || 0;
   }
 
   return {
-    harvestedTileCount,
+    harvestedTileCount: selectedTiles.length,
+    harvestedTilePositions: selectedTiles.map(t => t.position),
     harvestedResources
   };
 } 

@@ -176,9 +176,9 @@ export class GameDecks {
   }
 
   private initializeTraderDeck(): void {
-    // Add all trader cards to the trader deck
+    // Add all trader cards to the trader deck.
+    // Per the rules, the trader deck is face up and NOT shuffled - anyone may look through it.
     this.traderDeck.addCards([...TRADER_CARDS]);
-    this.traderDeck.shuffle();
   }
 
   private shuffleArray(array: Card[]): void {
@@ -241,14 +241,6 @@ export class GameDecks {
 
   getTraderDeckSize(): number {
     return this.traderDeck.size();
-  }
-
-  // Get the themes of the top cards for each adventure deck tier
-  getAdventureDeckThemes(): [AdventureThemeType, AdventureThemeType, AdventureThemeType] {
-    const tier1Theme = this.peekTopCard(1)?.theme || "beast"; // fallback to beast if no card
-    const tier2Theme = this.peekTopCard(2)?.theme || "grove"; // fallback to grove if no card
-    const tier3Theme = this.peekTopCard(3)?.theme || "cave"; // fallback to cave if no card
-    return [tier1Theme, tier2Theme, tier3Theme];
   }
 }
 

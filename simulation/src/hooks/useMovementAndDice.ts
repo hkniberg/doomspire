@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Tile } from "../lib/types";
 import { GameState } from "../game/GameState";
-import { DiceAction, TileAction, HarvestAction } from "../lib/actionTypes";
+import { DiceAction, TileAction } from "../lib/actionTypes";
 import { hasAnyTileActions } from "../components/TileActionModal";
 
 interface UseMovementAndDiceReturn {
   selectedChampionId: number | null;
   championMovementPath: { row: number; col: number }[];
-  selectedHarvestTiles: { row: number; col: number }[];
   diceValues: number[];
   usedDiceIndices: number[];
   selectedDieIndex: number | null;
@@ -21,7 +20,6 @@ interface UseMovementAndDiceReturn {
   tileActionModalOpen: boolean;
   setSelectedChampionId: (id: number | null) => void;
   setChampionMovementPath: (path: { row: number; col: number }[]) => void;
-  setSelectedHarvestTiles: (tiles: { row: number; col: number }[]) => void;
   setDiceValues: (values: number[]) => void;
   setUsedDiceIndices: (indices: number[]) => void;
   setSelectedDieIndex: (index: number | null) => void;
@@ -42,13 +40,12 @@ interface UseMovementAndDiceReturn {
   handleTileActionConfirm: (tileAction: TileAction, resolver?: (action: DiceAction) => void) => void;
   handleTileActionCancel: () => void;
   handleWASDMovement: (key: string) => void;
-  handleHarvestAction: (gameState?: GameState, resolver?: (action: DiceAction) => void, onAllDiceUsed?: () => void) => void;
+  handleSaveDieForHarvest: (resolver?: (action: DiceAction) => void, onAllDiceUsed?: () => void) => void;
 }
 
 export function useMovementAndDice(): UseMovementAndDiceReturn {
   const [selectedChampionId, setSelectedChampionId] = useState<number | null>(null);
   const [championMovementPath, setChampionMovementPath] = useState<{ row: number; col: number }[]>([]);
-  const [selectedHarvestTiles, setSelectedHarvestTiles] = useState<{ row: number; col: number }[]>([]);
   const [diceValues, setDiceValues] = useState<number[]>([]);
   const [usedDiceIndices, setUsedDiceIndices] = useState<number[]>([]);
   const [selectedDieIndex, setSelectedDieIndex] = useState<number | null>(null);
@@ -72,10 +69,9 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
     } else {
       // Select new die
       setSelectedDieIndex(dieIndex);
-      // Clear champion selection and harvest tiles when selecting new die
+      // Clear champion selection when selecting new die
       setSelectedChampionId(null);
       setChampionMovementPath([]);
-      setSelectedHarvestTiles([]);
     }
   }, [usedDiceIndices, selectedDieIndex]);
 
@@ -105,89 +101,10 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
   }, [selectedDieIndex, selectedChampionId]);
 
   const handleTileClick = useCallback((row: number, col: number, gameState?: GameState) => {
-    // If no die is selected, do nothing
-    if (selectedDieIndex === null) {
-      return;
-    }
-
-    // If a champion is selected, tile clicking is disabled for movement - use WASD keys instead
-    if (selectedChampionId !== null) {
-      console.log("🎯 Tile clicked:", { row, col }, "but movement is WASD-only when champion is selected");
-      return;
-    }
-
-    // Handle harvest tile selection
-    if (gameState) {
-      const position = { row, col };
-      const tile = gameState.getTile(position);
-      const currentPlayer = gameState.getCurrentPlayer();
-
-      if (!tile) return;
-
-      // Check if this tile can be harvested from
-      const canHarvestFromTile = () => {
-        // Check if player owns this tile or is blockading it
-        const isOwned = tile.claimedBy === currentPlayer.name;
-        const isBlockading = !isOwned && tile.claimedBy !== undefined && tile.claimedBy !== currentPlayer.name;
-
-        if (!isOwned && !isBlockading) {
-          return false;
-        }
-
-        // If owned, check if there are opposing champions blocking this tile
-        if (isOwned) {
-          const opposingChampions = gameState.getOpposingChampionsAtPosition(currentPlayer.name, position);
-          if (opposingChampions.length > 0) {
-            return false;
-          }
-        }
-
-        // If blockading, check if player has a champion on this tile
-        if (isBlockading) {
-          const playerChampionsOnTile = currentPlayer.champions.filter(champion =>
-            champion.position.row === position.row && champion.position.col === position.col
-          );
-          if (playerChampionsOnTile.length === 0) {
-            return false;
-          }
-
-          // Check if the tile is protected by adjacent knights of the owner
-          if (gameState.isClaimProtected(tile)) {
-            return false;
-          }
-        }
-
-        // Must have resources to harvest
-        return tile.resources && Object.values(tile.resources).some(amount => amount > 0);
-      };
-
-      if (canHarvestFromTile()) {
-        const diceValue = diceValues[selectedDieIndex];
-        const currentSelection = [...selectedHarvestTiles];
-
-        // Check if tile is already selected
-        const existingIndex = currentSelection.findIndex(
-          pos => pos.row === row && pos.col === col
-        );
-
-        if (existingIndex !== -1) {
-          // Deselect tile
-          currentSelection.splice(existingIndex, 1);
-        } else {
-          // Select tile (if we haven't reached the dice limit)
-          if (currentSelection.length < diceValue) {
-            currentSelection.push(position);
-          } else {
-            console.log(`Cannot select more than ${diceValue} tiles with dice value ${diceValue}`);
-          }
-        }
-
-        setSelectedHarvestTiles(currentSelection);
-      } else {
-        console.log("Cannot harvest from this tile");
-      }
-    }
-  }, [selectedDieIndex, selectedChampionId, selectedHarvestTiles, diceValues]);
+    // Tile clicking is not used for actions: movement is WASD-only, and harvest tiles
+    // are chosen during the harvest phase (in the harvest modal), not the move phase.
+    console.log("🎯 Tile clicked:", { row, col }, "- no tile click actions in the move phase");
+  }, []);
 
   const handleMovementUndo = useCallback(() => {
     if (championMovementPath.length > 1) {
@@ -201,12 +118,6 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
     console.log("❌ Canceling entire movement and deselecting champion");
     setSelectedChampionId(null);
     setChampionMovementPath([]);
-  }, []);
-
-  const handleHarvestCancel = useCallback(() => {
-    // Cancel harvest tile selection
-    console.log("❌ Canceling harvest tile selection");
-    setSelectedHarvestTiles([]);
   }, []);
 
   const handleMovementDone = useCallback((gameState?: GameState, resolver?: (action: DiceAction) => void, onAllDiceUsed?: () => void) => {
@@ -374,29 +285,25 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
     }
   }, [championMovementPath, selectedDieIndex, diceValues]);
 
-  const handleHarvestAction = useCallback((gameState?: GameState, resolver?: (action: DiceAction) => void, onAllDiceUsed?: () => void) => {
-    if (
-      selectedDieIndex !== null &&
-      selectedHarvestTiles.length > 0 &&
-      gameState &&
-      resolver
-    ) {
+  // Save the selected die for the harvest phase (which tiles to harvest is decided then)
+  const handleSaveDieForHarvest = useCallback((resolver?: (action: DiceAction) => void, onAllDiceUsed?: () => void) => {
+    if (selectedDieIndex !== null && resolver) {
       const diceValue = diceValues[selectedDieIndex];
 
       const action: DiceAction = {
         actionType: "harvestAction",
         harvestAction: {
           diceValuesUsed: [diceValue],
-          tilePositions: selectedHarvestTiles,
         },
-        reasoning: "Human player harvest action",
+        reasoning: "Human player saved a die for the harvest phase",
       };
 
       // Mark die as used and reset state
       const newUsedDiceIndices = [...usedDiceIndices, selectedDieIndex];
       setUsedDiceIndices(newUsedDiceIndices);
       setSelectedDieIndex(null);
-      setSelectedHarvestTiles([]);
+      setSelectedChampionId(null);
+      setChampionMovementPath([]);
 
       // Resolve the action
       resolver(action);
@@ -406,12 +313,11 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
         onAllDiceUsed();
       }
     }
-  }, [selectedDieIndex, selectedHarvestTiles, diceValues, usedDiceIndices]);
+  }, [selectedDieIndex, diceValues, usedDiceIndices]);
 
   return {
     selectedChampionId,
     championMovementPath,
-    selectedHarvestTiles,
     diceValues,
     usedDiceIndices,
     selectedDieIndex,
@@ -420,7 +326,6 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
     tileActionModalOpen,
     setSelectedChampionId,
     setChampionMovementPath,
-    setSelectedHarvestTiles,
     setDiceValues,
     setUsedDiceIndices,
     setSelectedDieIndex,
@@ -436,6 +341,6 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
     handleTileActionConfirm,
     handleTileActionCancel,
     handleWASDMovement,
-    handleHarvestAction,
+    handleSaveDieForHarvest,
   };
 }

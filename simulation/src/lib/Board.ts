@@ -105,16 +105,6 @@ export class Board {
     }
   }
 
-  setTileGroupToExplored(tileGroup: number) {
-    this.tiles.forEach(row => {
-      row.forEach(tile => {
-        if (tile.tileGroup === tileGroup) {
-          tile.explored = true;
-        }
-      });
-    });
-  }
-
   /**
    * Get all positions reachable within maxSteps from startPos within board bounds
    */

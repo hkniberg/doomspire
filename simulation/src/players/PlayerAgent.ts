@@ -1,10 +1,10 @@
 // Lords of Doomspire Player Interface
 
 import { GameState } from "@/game/GameState";
-import { BuildingDecision, DiceAction } from "@/lib/actionTypes";
+import { DiceAction, HarvestDecision } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
-import { AdventureThemeType, Decision, DecisionContext, GameLogEntry, PlayerType, TurnContext } from "@/lib/types";
+import { Decision, DecisionContext, GameLogEntry, PlayerType, TurnContext } from "@/lib/types";
 
 export interface PlayerAgent {
   getName(): string;
@@ -17,7 +17,6 @@ export interface PlayerAgent {
    * @param diceValues The dice values rolled for this turn
    * @param turnNumber Current turn number
    * @param traderItems Available trader items
-   * @param adventureDeckThemes Themes of the top cards in each adventure deck [tier1, tier2, tier3]
    * @param thinkingLogger Optional logger for AI thinking process
    * @returns Strategic assessment text or undefined if not supported
    */
@@ -27,7 +26,6 @@ export interface PlayerAgent {
     diceValues: number[],
     turnNumber: number,
     traderItems: readonly TraderCard[],
-    adventureDeckThemes: [AdventureThemeType, AdventureThemeType, AdventureThemeType],
     thinkingLogger?: (content: string) => void,
   ): Promise<string | undefined>;
 
@@ -77,17 +75,20 @@ export interface PlayerAgent {
   ): Promise<TraderDecision>;
 
   /**
-   * Decide which buildings to use and what to build during the harvest phase
+   * Make the harvest phase decision: which tiles to harvest from (using dice saved
+   * during the move phase), which buildings to use, and what to build.
    * @param gameState Current game state
    * @param gameLog Game log entries for this session
    * @param playerName Name of the player making the decision
+   * @param savedDiceValues Dice values saved for harvesting during the move phase (may be empty)
    * @param thinkingLogger Optional logger for AI thinking process
-   * @returns BuildingDecision with which buildings to use and what to build
+   * @returns HarvestDecision with harvest tiles, building usage, and build action
    */
-  useBuilding(
+  makeHarvestDecision(
     gameState: GameState,
     gameLog: readonly GameLogEntry[],
     playerName: string,
+    savedDiceValues: number[],
     thinkingLogger?: (content: string) => void,
-  ): Promise<BuildingDecision>;
+  ): Promise<HarvestDecision>;
 }

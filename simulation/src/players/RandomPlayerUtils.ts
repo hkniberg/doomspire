@@ -2,12 +2,13 @@
 // Reusable random operations for building different AI player variants
 
 import { getTraderItemById } from "@/content/traderItems";
+import { getEligibleHarvestTiles } from "@/engine/actions/harvestCalculator";
 import { GameState } from "@/game/GameState";
-import { BuildingDecision, DiceAction, TileAction } from "@/lib/actionTypes";
+import { DiceAction, HarvestDecision, TileAction } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { GameSettings } from "@/lib/GameSettings";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
-import { Player } from "@/lib/types";
+import { Player, Position } from "@/lib/types";
 import { canAfford } from "./PlayerUtils";
 
 // Random player behavior constants
@@ -33,8 +34,8 @@ export const RANDOM_CONSTANTS = {
   MAX_BOAT_ACTIONS: 10,
 
   // Tile action probabilities
-  CONQUER_WITH_MIGHT_CHANCE: 0.5,
-  INCITE_REVOLT_CHANCE: 0.5,
+  CONQUER_CHANCE: 0.5,
+  BRIBE_CHANCE: 0.5,
 } as const;
 
 /**
@@ -69,6 +70,11 @@ export function generateRandomChampionActions(
   const actions: DiceAction[] = [];
 
   for (const champion of player.champions) {
+    // Skip champions that have already interacted with a tile this round
+    if (champion.hasInteractedThisRound) {
+      continue;
+    }
+
     // Simple action: stay in place and claim tile if possible
     actions.push({
       actionType: "championAction",
@@ -179,7 +185,8 @@ export function generateRandomBoatActions(
 }
 
 /**
- * Generates a random harvest action for a given dice value
+ * Generates a harvest action (save a die for the harvest phase) for a given dice value.
+ * Which tiles to harvest is decided later, during the harvest phase.
  */
 export function generateRandomHarvestAction(
   gameState: GameState,
@@ -189,25 +196,34 @@ export function generateRandomHarvestAction(
   const player = gameState.getPlayer(playerName);
   if (!player) return null;
 
-  // Find claimed tiles for harvesting
-  const claimedTiles: Array<{ row: number; col: number }> = [];
+  return {
+    actionType: "harvestAction",
+    harvestAction: {
+      diceValuesUsed: [dieValue],
+    },
+  };
+}
 
-  // Add home tile
-  claimedTiles.push(player.homePosition);
+/**
+ * Pick which tiles to harvest from during the harvest phase:
+ * the eligible tiles with the highest total yield, up to the saved dice total.
+ */
+export function chooseBestHarvestTiles(
+  gameState: GameState,
+  playerName: string,
+  savedDiceValues: number[]
+): Position[] {
+  const diceSum = savedDiceValues.reduce((sum, value) => sum + value, 0);
+  if (diceSum === 0) return [];
 
-  // Look for other claimed tiles (this is simplified - in real game we'd check board state)
-  // For now, just harvest from home tile
-  if (claimedTiles.length > 0) {
-    return {
-      actionType: "harvestAction",
-      harvestAction: {
-        diceValuesUsed: [dieValue],
-        tilePositions: [claimedTiles[0]], // Just harvest from one tile
-      },
-    };
-  }
+  const totalYield = (tile: { resources?: Partial<Record<string, number>> }) =>
+    Object.values(tile.resources || {}).reduce((sum: number, amount) => sum + (amount || 0), 0);
 
-  return null;
+  return getEligibleHarvestTiles(gameState, playerName)
+    .filter(tile => totalYield(tile) > 0)
+    .sort((a, b) => totalYield(b) - totalYield(a))
+    .slice(0, diceSum)
+    .map(tile => tile.position);
 }
 
 /**
@@ -231,14 +247,13 @@ export function generateRandomTileAction(player: Player): TileAction {
     tileAction.useTemple = true;
   }
 
-  // Conquer with might if player has >= 1 might (50% chance)
-  if (player.might >= 1 && Math.random() < RANDOM_CONSTANTS.CONQUER_WITH_MIGHT_CHANCE) {
-    tileAction.conquerWithMight = true;
+  // Conquer if player has enough fame (50% chance)
+  if (player.fame >= GameSettings.CONQUER_FAME_COST && Math.random() < RANDOM_CONSTANTS.CONQUER_CHANCE) {
+    tileAction.conquer = true;
   }
-
-  // Incite revolt if player has >= 1 fame (50% chance)
-  if (player.fame >= 1 && Math.random() < RANDOM_CONSTANTS.INCITE_REVOLT_CHANCE) {
-    tileAction.inciteRevolt = true;
+  // Bribe if player has enough gold (50% chance, only if not conquering)
+  else if (player.resources.gold >= GameSettings.BRIBE_GOLD_COST && Math.random() < RANDOM_CONSTANTS.BRIBE_CHANCE) {
+    tileAction.bribe = true;
   }
 
   return tileAction;
@@ -397,10 +412,21 @@ export function makeRandomBuildAction(
 }
 
 /**
- * Generates a complete random building decision
+ * Generates a complete random harvest phase decision:
+ * harvest the best eligible tiles, plus random building usage and build action.
  */
-export function makeRandomBuildingDecision(player: Player): BuildingDecision {
-  const result: BuildingDecision = {};
+export function makeRandomHarvestDecision(
+  gameState: GameState,
+  player: Player,
+  savedDiceValues: number[]
+): HarvestDecision {
+  const result: HarvestDecision = {};
+
+  // Harvest the highest-yield eligible tiles with the saved dice
+  const harvestTiles = chooseBestHarvestTiles(gameState, player.name, savedDiceValues);
+  if (harvestTiles.length > 0) {
+    result.harvestTiles = harvestTiles;
+  }
 
   // Random building usage decisions
   const buildingUsageDecision = generateRandomBuildingUsage(player);

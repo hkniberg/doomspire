@@ -19,6 +19,7 @@ describe("GameStateStringifier", () => {
 ## Jim
 - Might: 0
 - Fame: 3
+- Dragon impressions: 0/2
 - Home: (0,7)
 - Resource stockpile: 1 food, 2 wood
 - champion1 at (3,3)
@@ -30,13 +31,14 @@ Spend \`2 ore\` to gain \`+1 might\`
 - champion1 at (2,5)
 - boat1 at (sw)
 - Buildings: none
-- claims (2 tiles of max 10):
+- claims (2 tiles):
   - Tile (0,5) (starred) providing 2 food, 1 gold (blockaded by Bob champion1)
   - Tile (0,7) providing 1 ore
 
 ## Bob
 - Might: 1
 - Fame: 2
+- Dragon impressions: 0/2
 - Home: (0,0)
 - Resource stockpile: 1 ore
 - champion1 at (0,5)
@@ -48,18 +50,20 @@ Spend \`2 ore\` to gain \`+1 might\`
 ## Alice
 - Might: 0
 - Fame: 0
+- Dragon impressions: 0/2
 - Home: (7,0)
 - Resource stockpile: 1 food, 1 wood
 - champion1 at (7,0)
 - boat1 at (sw)
 - Buildings:
-  - market (sell food/wood/ore for gold, 2 resources = 1 gold)
-  - blacksmith (buy 1 might for 1 gold + 2 ore)
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+  - blacksmith (buy 1 might for 1 gold + 3 ore, once per harvest phase)
 - no claims
 
 ## David
 - Might: 0
 - Fame: 0
+- Dragon impressions: 0/2
 - Home: (7,7)
 - Resource stockpile: 1 food, 1 wood
 - champion1 at (7,7)
@@ -165,15 +169,15 @@ Tile (3,4)
 - Unexplored tier 1 tile
 
 Tile (3,5)
-- Chapel (no combat). Buy 3 fame for 1 might
+- Temple (no combat). Sacrifice 2 fame to gain 1 might (once per round)
 - Jim champion2 is here
 
 Tile (3,6)
-- Trader (no combat). Exchange 2 of any resource (food/wood/ore/gold) for 1 of any resource. Buy weapons/tools/items for gold
+- Trader (no combat). Exchange 2 of any resource (food/wood/ore/gold) for 1 of any resource. Buy weapons/tools/items for gold. Once per round
 - Item: spear (dropped on ground)
 
 Tile (3,7)
-- Mercenary camp (no combat). Buy 1 might for 3 gold
+- Mercenary camp (no combat). Buy 1 might for 3 gold (once per round)
 
 Tile (4,0)
 - Unexplored tier 1 tile
@@ -188,7 +192,7 @@ Tile (4,3)
 - Unexplored tier 1 tile
 
 Tile (4,4)
-- Doomspire Dragon (might 8) - Impressed 0/2 times
+- Doomspire Dragon (might 8 + 2D3). Impress it (17+ fame, 12+ gold, 4+ starred tiles, or defeat it in combat) or be eaten. First player to impress it 2 times wins
 
 Tile (4,5)
 - Unexplored tier 1 tile
@@ -292,7 +296,7 @@ Tile (7,7)
     // Test 3: Trader tile with dropped item
     const traderTile = sampleGameState.getTile({ row: 3, col: 6 })!;
     const traderResult = stringifyTileForGameLog(traderTile, sampleGameState);
-    expect(traderResult).toBe("This is a trader (no combat). Exchange 2 of any resource (food/wood/ore/gold) for 1 of any resource. Buy weapons/tools/items for gold. There is a spear here.");
+    expect(traderResult).toBe("This is a trader (no combat). Exchange 2 of any resource (food/wood/ore/gold) for 1 of any resource. Buy weapons/tools/items for gold. Once per round. There is a spear here.");
 
     // Test 4: Adventure tile with monster and no tokens
     const adventureTile = sampleGameState.getTile({ row: 1, col: 6 })!;
@@ -304,10 +308,10 @@ Tile (7,7)
     const adventureWithTokensResult = stringifyTileForGameLog(adventureTileWithTokens, sampleGameState, "Jim");
     expect(adventureWithTokensResult).toBe("This is an adventure tile.");
 
-    // Test 5: Chapel with champion
-    const chapelTile = sampleGameState.getTile({ row: 3, col: 5 })!;
-    const chapelResult = stringifyTileForGameLog(chapelTile, sampleGameState, "Jim"); // Ignore Jim's champion
-    expect(chapelResult).toBe("This is a chapel (no combat). Buy 3 fame for 1 might.");
+    // Test 5: Temple with champion
+    const templeTile = sampleGameState.getTile({ row: 3, col: 5 })!;
+    const templeResult = stringifyTileForGameLog(templeTile, sampleGameState, "Jim"); // Ignore Jim's champion
+    expect(templeResult).toBe("This is a temple (no combat). Sacrifice 2 fame to gain 1 might (once per round).");
 
     // Test 6: Protected resource tile (protected by adjacent champion)
     // Add a Jim champion adjacent to his claimed tile at (0,7) to protect it
@@ -462,7 +466,7 @@ function createSampleGameState(): GameState {
       fame: 3,
       might: 0,
       resources: { food: 1, wood: 2, ore: 0, gold: 0 },
-      maxClaims: 10,
+      dragonImpressions: 0,
       homePosition: { row: 0, col: 7 },
       champions: [
         {
@@ -502,7 +506,7 @@ function createSampleGameState(): GameState {
       fame: 2,
       might: 1,
       resources: { food: 0, wood: 0, ore: 1, gold: 0 },
-      maxClaims: 10,
+      dragonImpressions: 0,
       homePosition: { row: 0, col: 0 },
       champions: [
         {
@@ -533,7 +537,7 @@ function createSampleGameState(): GameState {
       fame: 0,
       might: 0,
       resources: { food: 1, wood: 1, ore: 0, gold: 0 },
-      maxClaims: 10,
+      dragonImpressions: 0,
       homePosition: { row: 7, col: 0 },
       champions: [
         {
@@ -560,7 +564,7 @@ function createSampleGameState(): GameState {
       fame: 0,
       might: 0,
       resources: { food: 1, wood: 1, ore: 0, gold: 0 },
-      maxClaims: 10,
+      dragonImpressions: 0,
       homePosition: { row: 7, col: 7 },
       champions: [
         {

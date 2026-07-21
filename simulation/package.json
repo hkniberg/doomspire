@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync-rules": "node scripts/sync-rules.js",
+    "predev": "npm run sync-rules",
+    "prebuild": "npm run sync-rules",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -15,7 +18,7 @@
     "format": "prettier --write \"**/*.{js,ts,json,css,md}\""
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.56.0",
+    "@anthropic-ai/sdk": "^0.112.3",
     "dotenv": "^17.2.0",
     "jsonrepair": "^3.13.0",
     "next": "15.4.10",

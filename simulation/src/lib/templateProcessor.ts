@@ -34,10 +34,12 @@ export class TemplateProcessor {
   }
 
   /**
-   * Load the game rules from the game-rules.md file
+   * Load the game rules (a synced copy of docs/game-rules.md) plus the simulator-specific notes
    */
   private async loadGameRules(): Promise<string> {
-    return this.fileLoader("/prompts/game-rules-for-ai.md");
+    const rules = await this.fileLoader("/prompts/game-rules.md");
+    const simulatorNotes = await this.fileLoader("/prompts/simulator-notes-for-ai.md");
+    return `${rules}\n\n---\n\n${simulatorNotes}`;
   }
 
   /**

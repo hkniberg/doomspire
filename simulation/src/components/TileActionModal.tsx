@@ -21,35 +21,34 @@ export const hasAnyTileActions = (gameState: GameState, tile: Tile, player: Play
   // Check if can claim tile
   const canClaimTile =
     tile.tileType === "resource" &&
-    tile.claimedBy === undefined &&
-    gameState.board.findTiles((t) => t.claimedBy === player.name).length < player.maxClaims;
+    tile.claimedBy === undefined;
 
-  // Check if can conquer tile
+  // Check if can conquer tile (2 fame)
   const canConquerTile =
     tile.tileType === "resource" &&
     tile.claimedBy !== undefined &&
     tile.claimedBy !== player.name &&
-    player.might >= GameSettings.CONQUEST_MIGHT_COST &&
+    player.fame >= GameSettings.CONQUER_FAME_COST &&
     !gameState.isClaimProtected(tile) &&
     gameState.getOpposingChampionsAtPosition(player.name, tile.position).length === 0;
 
-  // Check if can incite revolt
-  const canInciteRevolt =
+  // Check if can bribe (2 gold)
+  const canBribeTile =
     tile.tileType === "resource" &&
     tile.claimedBy !== undefined &&
     tile.claimedBy !== player.name &&
-    player.fame >= GameSettings.REVOLT_FAME_COST &&
+    player.resources.gold >= GameSettings.BRIBE_GOLD_COST &&
     !gameState.isClaimProtected(tile) &&
     gameState.getOpposingChampionsAtPosition(player.name, tile.position).length === 0;
 
   // Check if can use trader
-  const canUseTrader = tile.tileType === "trader";
+  const canUseTrader = tile.tileType === "trader" && !player.specialTileUsesThisRound?.trader;
 
   // Check if can use mercenary
-  const canUseMercenary = tile.tileType === "mercenary" && player.resources.gold >= GameSettings.MERCENARY_GOLD_COST;
+  const canUseMercenary = tile.tileType === "mercenary" && player.resources.gold >= GameSettings.MERCENARY_GOLD_COST && !player.specialTileUsesThisRound?.mercenary;
 
   // Check if can use temple
-  const canUseTemple = tile.tileType === "temple" && player.fame >= GameSettings.TEMPLE_FAME_COST;
+  const canUseTemple = tile.tileType === "temple" && player.fame >= GameSettings.TEMPLE_FAME_COST && !player.specialTileUsesThisRound?.temple;
 
   // Check if there are items to pick up
   const hasItemsToPickUp = (tile.items || []).length > 0;
@@ -60,7 +59,7 @@ export const hasAnyTileActions = (gameState: GameState, tile: Tile, player: Play
   return (
     canClaimTile ||
     canConquerTile ||
-    canInciteRevolt ||
+    canBribeTile ||
     canUseTrader ||
     canUseMercenary ||
     canUseTemple ||
@@ -98,8 +97,7 @@ export const TileActionModal: React.FC<TileActionModalProps> = ({
   const canClaimTile = () => {
     return (
       tile.tileType === "resource" &&
-      tile.claimedBy === undefined &&
-      gameState.board.findTiles((t) => t.claimedBy === player.name).length < player.maxClaims
+      tile.claimedBy === undefined
     );
   };
 
@@ -108,18 +106,18 @@ export const TileActionModal: React.FC<TileActionModalProps> = ({
       tile.tileType === "resource" &&
       tile.claimedBy !== undefined &&
       tile.claimedBy !== player.name &&
-      player.might >= GameSettings.CONQUEST_MIGHT_COST &&
+      player.fame >= GameSettings.CONQUER_FAME_COST &&
       !gameState.isClaimProtected(tile) &&
       gameState.getOpposingChampionsAtPosition(player.name, tile.position).length === 0
     );
   };
 
-  const canInciteRevolt = () => {
+  const canBribeTile = () => {
     return (
       tile.tileType === "resource" &&
       tile.claimedBy !== undefined &&
       tile.claimedBy !== player.name &&
-      player.fame >= GameSettings.REVOLT_FAME_COST &&
+      player.resources.gold >= GameSettings.BRIBE_GOLD_COST &&
       !gameState.isClaimProtected(tile) &&
       gameState.getOpposingChampionsAtPosition(player.name, tile.position).length === 0
     );
@@ -229,24 +227,24 @@ export const TileActionModal: React.FC<TileActionModalProps> = ({
             <label style={{ display: "block", marginBottom: "10px" }}>
               <input
                 type="checkbox"
-                checked={selectedActions.conquerWithMight || false}
-                onChange={(e) => handleActionChange("conquerWithMight", e.target.checked)}
+                checked={selectedActions.conquer || false}
+                onChange={(e) => handleActionChange("conquer", e.target.checked)}
                 style={{ marginRight: "8px" }}
               />
-              Conquer tile with might (costs 1 might)
+              Conquer tile by force (costs {GameSettings.CONQUER_FAME_COST} fame)
             </label>
           )}
 
-          {/* Incite Revolt */}
-          {canInciteRevolt() && (
+          {/* Bribe */}
+          {canBribeTile() && (
             <label style={{ display: "block", marginBottom: "10px" }}>
               <input
                 type="checkbox"
-                checked={selectedActions.inciteRevolt || false}
-                onChange={(e) => handleActionChange("inciteRevolt", e.target.checked)}
+                checked={selectedActions.bribe || false}
+                onChange={(e) => handleActionChange("bribe", e.target.checked)}
                 style={{ marginRight: "8px" }}
               />
-              Incite revolt with fame (costs 1 fame, frees tile)
+              Bribe to take over tile (costs {GameSettings.BRIBE_GOLD_COST} gold)
             </label>
           )}
 

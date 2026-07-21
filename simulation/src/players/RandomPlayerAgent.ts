@@ -1,10 +1,10 @@
 // Lords of Doomspire Random Player
 
 import { GameState } from "@/game/GameState";
-import { BuildingDecision, DiceAction } from "@/lib/actionTypes";
+import { DiceAction, HarvestDecision } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
-import { AdventureThemeType, Decision, DecisionContext, GameLogEntry, PlayerType, TurnContext } from "@/lib/types";
+import { Decision, DecisionContext, GameLogEntry, PlayerType, TurnContext } from "@/lib/types";
 import { PlayerAgent } from "./PlayerAgent";
 import {
   generateRandomChampionActions,
@@ -12,7 +12,7 @@ import {
   generateRandomHarvestAction,
   generateRandomTileAction,
   makeRandomTraderDecision,
-  makeRandomBuildingDecision,
+  makeRandomHarvestDecision,
   randomChoice,
   randomDiceValue,
 } from "./RandomPlayerUtils";
@@ -38,7 +38,6 @@ export class RandomPlayerAgent implements PlayerAgent {
     diceValues: number[],
     turnNumber: number,
     traderItems: readonly TraderCard[],
-    adventureDeckThemes: [AdventureThemeType, AdventureThemeType, AdventureThemeType],
     thinkingLogger?: (content: string) => void,
   ): Promise<string | undefined> {
     // Random players don't provide strategic assessments
@@ -139,22 +138,23 @@ export class RandomPlayerAgent implements PlayerAgent {
     return decision;
   }
 
-  async useBuilding(
+  async makeHarvestDecision(
     gameState: GameState,
     gameLog: readonly GameLogEntry[],
     playerName: string,
+    savedDiceValues: number[],
     thinkingLogger?: (content: string) => void,
-  ): Promise<BuildingDecision> {
+  ): Promise<HarvestDecision> {
     const player = gameState.getPlayer(playerName);
     if (!player) {
       throw new Error(`Player with name ${playerName} not found`);
     }
 
-    const result = makeRandomBuildingDecision(player);
+    const result = makeRandomHarvestDecision(gameState, player, savedDiceValues);
 
     if (thinkingLogger) {
       const hasUsage = result.buildingUsageDecision && Object.keys(result.buildingUsageDecision).length > 0;
-      thinkingLogger(`Random player ${this.name} building decision: ${hasUsage ? 'using buildings' : 'no building usage'}, ${result.buildAction ? `building ${result.buildAction}` : 'no build action'}`);
+      thinkingLogger(`Random player ${this.name} harvest decision: ${result.harvestTiles?.length || 0} tile(s), ${hasUsage ? 'using buildings' : 'no building usage'}, ${result.buildAction ? `building ${result.buildAction}` : 'no build action'}`);
     }
 
     return result;

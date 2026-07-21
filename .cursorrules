@@ -5,11 +5,12 @@ This repository represents the design and development of **Lords of Doomspire**,
 ## Project Structure
 
 - **Game Overview**: See`docs/game-overview.md`
-- **Rules**: The game rules exist in three versions:
+- **Rules**: The game rules exist in these forms:
   - `docs/game-rules.md` = the canonical version, for the printed board game and human players. The code should reflect these rules. The rules are the source of truth. If you see anything that seems incorrect or inconsistent with the rules, please point this out.
   - `simulation/src/pages/cheat-sheet.tsx` = the consolidated game reference cheat sheet, packaged as a web page.
-  - `simulation/public/prompts/game-rules-for-ai.md` = AI-adapted rules of the game, with minor changes to make it work better in the simulator context.
-  - If you update any of these, then update the other versions as well to keep them in sync. Or at least warn the user.
+  - `simulation/public/prompts/game-rules.md` = an auto-generated copy of the canonical rules for the AI players. Never edit it directly; it is synced from `docs/game-rules.md` by `simulation/scripts/sync-rules.js` (runs automatically before `npm run dev` and `npm run build`, or manually via `npm run sync-rules`).
+  - `simulation/public/prompts/simulator-notes-for-ai.md` = deliberate simulator deviations from the printed rules (e.g. no player-to-player trading, no negotiation). If the simulator intentionally deviates from the rules, document it here.
+  - If you update the rules, update the cheat sheet as well (and run sync-rules), or at least warn the user.
 - **Simulation**: All simulation code is in the `simulation/` directory, which is structured as a single-page Next.js frontend app, but should also be able to run as a headless script to run a simulated match or turn. Tests are in the simulation/test directory.
 - **Documentation**: Additional design documents in the `docs/` folder
 
@@ -68,7 +69,7 @@ Use these exact import paths to avoid module resolution issues:
 - Don't run or build the next.js app automatically when making changes. When working on the web app, I will already have `npm run dev` running in the background.
 - When needed, you can run `node run-test.js --single-turn` to run a single turn of the game in a headless mode to check that things are working. Or run `node run-test.js --complete` to run a complete game. Or run `node run-test.js --turns X` to run a specific number of turns.
 - You can change the starting resources for the random players by adding the following arguments: `--gold N`, `--fame N`, `--might N`, `--food N`, `--wood N`, `--ore N`. This is useful for accelerating the simulation when testing.
-- You can specify player types using `--p1 claude`, `--p2 random`, etc. Available types are `random` and `claude`. Don't use claude unless asked, since using it is slow and costly.
+- You can specify player types using `--p1 claude`, `--p2 random`, etc. Available types are `random` and `claude`. Claude players can specify a model with `--p1 claude:haiku` (available: haiku, sonnet, opus, fable; default sonnet). Don't use claude unless asked, since using it is slow and costly.
 - To test specific cards, you can temporarily rig the deck using the `ONLY_INCLUDE_CARDS` variable in `simulation/src/lib/cards.ts`.
 
 ## Committing

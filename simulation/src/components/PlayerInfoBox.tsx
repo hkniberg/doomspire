@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { GameState } from "../game/GameState";
+import type { TokenUsageTracker } from "../lib/TokenUsageTracker";
+import { DEFAULT_CLAUDE_MODEL } from "../llm/claude";
 import type { CarriableItem, Champion, Player, Tile } from "../lib/types";
 import { ResourceDisplay } from "./ResourceDisplay";
 import { CardComponent, formatTraderContent } from "./cards/Card";
@@ -22,6 +24,8 @@ interface PlayerInfoBoxProps {
   isCurrentPlayer: boolean;
   claimedTiles: number;
   playerType?: string; // Added to identify if this is a Claude player
+  claudeModel?: string; // Model name for Claude players (haiku/sonnet/opus/fable)
+  tokenUsageTracker?: TokenUsageTracker; // Per-player token usage tracker for Claude players
   onExtraInstructionsChange?: (playerName: string, instructions: string) => void; // Callback for updating extra instructions
   gameState: GameState; // Add gameState to access board and champions for blockade detection
   getPlayerColor: (playerName: string) => {
@@ -37,12 +41,22 @@ export const PlayerInfoBox = ({
   isCurrentPlayer,
   claimedTiles,
   playerType,
+  claudeModel,
+  tokenUsageTracker,
   onExtraInstructionsChange,
   gameState,
   getPlayerColor,
 }: PlayerInfoBoxProps) => {
   const colors = getPlayerColor(player.name);
   const [modalItem, setModalItem] = useState<ModalItemData | null>(null);
+
+  // The tracker mutates outside React, so poll it while a Claude turn may be running
+  const [, setCostRefreshTrigger] = useState(0);
+  useEffect(() => {
+    if (!tokenUsageTracker) return;
+    const interval = setInterval(() => setCostRefreshTrigger((prev) => prev + 1), 5000);
+    return () => clearInterval(interval);
+  }, [tokenUsageTracker]);
 
   // Helper function to get champions on a specific tile
   const getChampionsOnTile = (position: { row: number; col: number }): Champion[] => {
@@ -224,19 +238,32 @@ export const PlayerInfoBox = ({
             </div>
           </div>
 
-          {/* Player Type Badge */}
+          {/* Player Type Badge (with model and token cost for Claude players) */}
           {playerType && (
-            <div
-              style={{
-                fontSize: "10px",
-                backgroundColor: playerType === "claude" ? "#007bff" : "#6c757d",
-                color: "white",
-                padding: "2px 6px",
-                borderRadius: "4px",
-                textTransform: "uppercase",
-              }}
-            >
-              {playerType}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
+              <div
+                style={{
+                  fontSize: "10px",
+                  backgroundColor: playerType === "claude" ? "#007bff" : "#6c757d",
+                  color: "white",
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  textTransform: "uppercase",
+                }}
+              >
+                {playerType === "claude" ? `claude · ${claudeModel ?? DEFAULT_CLAUDE_MODEL}` : playerType}
+              </div>
+              {playerType === "claude" && tokenUsageTracker && (
+                <div
+                  style={{ fontSize: "10px", color: "#6c757d", fontWeight: "bold" }}
+                  title={`${tokenUsageTracker.getTotalTokens().toLocaleString()} tokens used by this player`}
+                >
+                  {(() => {
+                    const cost = tokenUsageTracker.getCosts().totalCost;
+                    return `$${cost.toFixed(cost >= 1 ? 2 : 3)}`;
+                  })()}
+                </div>
+              )}
             </div>
           )}
         </div>

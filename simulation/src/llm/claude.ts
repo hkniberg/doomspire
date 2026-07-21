@@ -3,13 +3,38 @@ import { Anthropic } from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 import pRetry, { AbortError } from "p-retry";
 
-const DEFAULT_MODEL = "claude-sonnet-4-0";
+/**
+ * Selectable Claude model families for AI players.
+ * Maps friendly names to Claude API model IDs (as of July 2026).
+ */
+export const CLAUDE_MODELS = {
+  haiku: "claude-haiku-4-5",
+  sonnet: "claude-sonnet-5",
+  opus: "claude-opus-4-8",
+  fable: "claude-fable-5",
+} as const;
+
+export type ClaudeModel = keyof typeof CLAUDE_MODELS;
+
+export const DEFAULT_CLAUDE_MODEL: ClaudeModel = "sonnet";
+
 const DEFAULT_RESPONSE_TOKENS = 10000;
-const DEFAULT_THINKING_TOKENS = 2000;
+// Haiku 4.5 does not support adaptive thinking (400 error); it uses manual extended
+// thinking with a fixed token budget instead. Sonnet 5, Opus 4.8, and Fable 5 all use
+// adaptive thinking (and reject manual budgets with a 400 error).
+const HAIKU_THINKING_BUDGET_TOKENS = 8000;
+// Adaptive thinking tokens count toward max_tokens, so reserve headroom on top of the
+// response budget requested by the caller. Without this, a long thinking phase can eat
+// the entire budget and the response gets truncated before any text is produced.
+// The headroom is deliberately generous: unused output tokens cost nothing, while a
+// truncated response forces a costly and slow retry. The headroom is doubled on each
+// retry attempt in case the model thinks past even this budget.
+const THINKING_TOKEN_HEADROOM = 24000;
 const MAX_RETRIES = 3;
 const MIN_TIMEOUT_MS = 1000; // Start with 1 second
 const MAX_TIMEOUT_MS = 8000; // Cap at 8 seconds
 const BACKOFF_FACTOR = 2; // Double the delay each time
+const MAX_TOTAL_OUTPUT_TOKENS = 64000; // Safety cap for max_tokens, even after retry escalation
 
 // Helper function to log with timestamp
 function log(label: string, content: any) {
@@ -19,11 +44,11 @@ function log(label: string, content: any) {
 
 export class Claude {
   private anthropic: Anthropic;
-  private model: string;
+  private model: ClaudeModel;
   private systemMessage: string;
   private tokenUsageTracker?: TokenUsageTracker;
 
-  constructor(apiKey: string, systemMessage: string, model: string = DEFAULT_MODEL, tokenUsageTracker?: TokenUsageTracker) {
+  constructor(apiKey: string, systemMessage: string, model: ClaudeModel = DEFAULT_CLAUDE_MODEL, tokenUsageTracker?: TokenUsageTracker) {
     this.anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
     this.model = model;
     this.systemMessage = systemMessage;
@@ -32,24 +57,32 @@ export class Claude {
 
   /**
    * Send a user message and get either a structured JSON response (if schema provided) or plain text response
+   *
+   * Note: Sonnet 5, Opus 4.8, and Fable 5 use adaptive thinking; manual thinking budgets
+   * are rejected with a 400 error on those models. Haiku 4.5 is the opposite: it only
+   * supports manual extended thinking with a fixed budget. The thinkingTokens parameter
+   * is kept for call-site compatibility but is ignored (a fixed budget is used for Haiku).
    */
   async useClaude(
     userMessage: string,
     responseSchema?: any,
-    thinkingTokens: number = DEFAULT_THINKING_TOKENS,
+    thinkingTokens: number = 0,
     responseTokens: number = DEFAULT_RESPONSE_TOKENS,
     thinkingLogger?: (content: string) => void,
   ): Promise<any> {
-    // Only append JSON instruction if schema is provided
-    const fullUserMessage = responseSchema
-      ? userMessage +
-      `\n\nIMPORTANT: You must respond with a JSON object strictly obeying the given schema:\m${JSON.stringify(responseSchema, null, 2)}\n\nDo not add any other text before or after.`
-      : userMessage;
-
     log("User Message", userMessage);
 
+    // Haiku 4.5 only supports manual extended thinking (adaptive is rejected with a 400).
+    // The other models only support adaptive thinking; "summarized" display makes the
+    // reasoning readable so the thinkingLogger can surface it in the game log (raw chain
+    // of thought is never returned on these models, and display defaults to "omitted").
+    const thinkingConfig =
+      this.model === "haiku"
+        ? { type: "enabled", budget_tokens: HAIKU_THINKING_BUDGET_TOKENS }
+        : { type: "adaptive", display: "summarized" };
+
     const params: Anthropic.Messages.MessageCreateParamsNonStreaming = {
-      model: this.model,
+      model: CLAUDE_MODELS[this.model],
       // Always cache the system message
       system: [
         {
@@ -61,22 +94,31 @@ export class Claude {
       messages: [
         {
           role: "user",
-          content: fullUserMessage,
+          content: userMessage,
         },
       ],
-      ...(thinkingTokens >= 1024 && {
-        thinking: {
-          type: "enabled",
-          budget_tokens: thinkingTokens,
-        },
-      }),
-      max_tokens: responseTokens,
+      thinking: thinkingConfig as any,
+      max_tokens: responseTokens + THINKING_TOKEN_HEADROOM,
+      // Structured outputs: when a schema is provided, the API constrains generation so the
+      // text response is guaranteed to be valid JSON matching the schema (thinking is unaffected).
+      ...(responseSchema
+        ? { output_config: { format: { type: "json_schema" as const, schema: responseSchema } } }
+        : {}),
     };
 
     // Define the operation that will be retried
     const operation = async (attemptNumber: number) => {
       try {
-        const response = await this.anthropic.messages.create(params);
+        // Double the thinking headroom on each retry, so a truncated attempt
+        // gets significantly more room instead of failing the same way again
+        const headroom = THINKING_TOKEN_HEADROOM * 2 ** (attemptNumber - 1);
+        const maxTokens = Math.min(responseTokens + headroom, MAX_TOTAL_OUTPUT_TOKENS);
+
+        // Use streaming: the SDK refuses non-streaming requests whose max_tokens implies a
+        // potential runtime over 10 minutes, and our generous thinking headroom exceeds that.
+        // finalMessage() accumulates the stream into the same Message shape as create().
+        const stream = this.anthropic.messages.stream({ ...params, max_tokens: maxTokens });
+        const response = await stream.finalMessage();
 
         // Track token usage if tracker is available
         if (this.tokenUsageTracker && response.usage) {
@@ -93,7 +135,10 @@ export class Claude {
         const thinkingBlocks = response.content.filter((block): block is Anthropic.ThinkingBlock => block.type === "thinking");
 
         if (textBlocks.length === 0 && thinkingBlocks.length > 0) {
-          throw new Error("Claude returned only truncated thinking blocks with no text response");
+          throw new Error(
+            `Claude returned only truncated thinking blocks with no text response ` +
+            `(stop_reason: ${response.stop_reason}, max_tokens: ${maxTokens}, output_tokens: ${response.usage?.output_tokens})`
+          );
         }
 
         // Log each content block in sequence
@@ -166,14 +211,15 @@ export class Claude {
           );
 
         if (!isRetryable) {
-          // If not retryable, throw immediately
-          throw error;
+          // AbortError tells p-retry to stop immediately (no retries) for fatal errors
+          // such as an invalid API key or a malformed request.
+          throw new AbortError(
+            `Claude API error (attempt ${attemptNumber}): ${error instanceof Error ? error.message : String(error)}`
+          );
         }
 
-        // For retryable errors, throw with attempt info for p-retry
-        throw new AbortError(
-          `Claude API error (attempt ${attemptNumber}): ${error instanceof Error ? error.message : String(error)}`
-        );
+        // Plain errors are retried by p-retry with exponential backoff
+        throw error;
       }
     };
 

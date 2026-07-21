@@ -1,7 +1,7 @@
 // Lords of Doomspire Human Player Implementation
 
 import { GameState } from "@/game/GameState";
-import { BuildingDecision, DiceAction } from "@/lib/actionTypes";
+import { DiceAction, HarvestDecision } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
 import { AdventureThemeType, Decision, DecisionContext, GameLogEntry, PlayerType, TurnContext } from "@/lib/types";
@@ -24,11 +24,12 @@ export class HumanPlayer implements PlayerAgent {
     gameLog: readonly GameLogEntry[],
     traderContext: TraderContext
   ) => Promise<TraderDecision>;
-  private onBuildingDecisionNeeded?: (
+  private onHarvestDecisionNeeded?: (
     gameState: GameState,
     gameLog: readonly GameLogEntry[],
-    playerName: string
-  ) => Promise<BuildingDecision>;
+    playerName: string,
+    savedDiceValues: number[]
+  ) => Promise<HarvestDecision>;
 
   constructor(
     name: string,
@@ -48,18 +49,19 @@ export class HumanPlayer implements PlayerAgent {
         gameLog: readonly GameLogEntry[],
         traderContext: TraderContext
       ) => Promise<TraderDecision>;
-      onBuildingDecisionNeeded?: (
+      onHarvestDecisionNeeded?: (
         gameState: GameState,
         gameLog: readonly GameLogEntry[],
-        playerName: string
-      ) => Promise<BuildingDecision>;
+        playerName: string,
+        savedDiceValues: number[]
+      ) => Promise<HarvestDecision>;
     }
   ) {
     this.playerName = name;
     this.onDiceActionNeeded = callbacks?.onDiceActionNeeded;
     this.onDecisionNeeded = callbacks?.onDecisionNeeded;
     this.onTraderDecisionNeeded = callbacks?.onTraderDecisionNeeded;
-    this.onBuildingDecisionNeeded = callbacks?.onBuildingDecisionNeeded;
+    this.onHarvestDecisionNeeded = callbacks?.onHarvestDecisionNeeded;
   }
 
   getName(): string {
@@ -120,19 +122,20 @@ export class HumanPlayer implements PlayerAgent {
     });
   }
 
-  async useBuilding(
+  async makeHarvestDecision(
     gameState: GameState,
     gameLog: readonly GameLogEntry[],
     playerName: string,
+    savedDiceValues: number[],
     thinkingLogger?: (content: string) => void
-  ): Promise<BuildingDecision> {
+  ): Promise<HarvestDecision> {
     return new Promise((resolve) => {
-      if (this.onBuildingDecisionNeeded) {
-        this.onBuildingDecisionNeeded(gameState, gameLog, playerName).then(resolve);
+      if (this.onHarvestDecisionNeeded) {
+        this.onHarvestDecisionNeeded(gameState, gameLog, playerName, savedDiceValues).then(resolve);
       } else {
         // Fallback to empty decision if no handler is set
         resolve({
-          reasoning: "Human player - no building decision handler set"
+          reasoning: "Human player - no harvest decision handler set"
         });
       }
     });
@@ -155,15 +158,16 @@ export class HumanPlayer implements PlayerAgent {
       gameLog: readonly GameLogEntry[],
       traderContext: TraderContext
     ) => Promise<TraderDecision>;
-    onBuildingDecisionNeeded?: (
+    onHarvestDecisionNeeded?: (
       gameState: GameState,
       gameLog: readonly GameLogEntry[],
-      playerName: string
-    ) => Promise<BuildingDecision>;
+      playerName: string,
+      savedDiceValues: number[]
+    ) => Promise<HarvestDecision>;
   }): void {
     this.onDiceActionNeeded = callbacks.onDiceActionNeeded;
     this.onDecisionNeeded = callbacks.onDecisionNeeded;
     this.onTraderDecisionNeeded = callbacks.onTraderDecisionNeeded;
-    this.onBuildingDecisionNeeded = callbacks.onBuildingDecisionNeeded;
+    this.onHarvestDecisionNeeded = callbacks.onHarvestDecisionNeeded;
   }
 }

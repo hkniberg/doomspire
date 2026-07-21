@@ -1,5 +1,5 @@
-import { GameLogEntry, Player, ResourceType } from "@/lib/types";
-import { PlayerAgent } from "../../players/PlayerAgent";
+import { Player, ResourceType } from "@/lib/types";
+import { HarvestDecision } from "@/lib/actionTypes";
 import { handleBuildAction } from "./buildActionHandler";
 import { GameSettings } from "@/lib/GameSettings";
 import { canAfford, deductCost } from "@/players/PlayerUtils";
@@ -16,16 +16,27 @@ export interface BuildingUsageResult {
 }
 
 /**
- * Handle building usage and build actions for a player during the harvest phase
+ * Whether the player has anything to decide about buildings during the harvest phase:
+ * usable buildings, or affordable build actions.
  */
-export async function handleBuildingUsage(
+export function hasHarvestPhaseBuildingOptions(player: Player): boolean {
+  const hasUsableBuilding =
+    player.buildings.includes("blacksmith") ||
+    player.buildings.includes("market") ||
+    player.buildings.includes("fletcher");
+  return hasUsableBuilding || checkAvailableBuildActions(player).length > 0;
+}
+
+/**
+ * Apply the building parts of a player's harvest phase decision:
+ * building usage first, then one build action.
+ */
+export function handleBuildingUsage(
   player: Player,
-  playerAgent: PlayerAgent,
+  buildingDecision: HarvestDecision,
   gameState: any,
-  gameLog: readonly GameLogEntry[],
   logFn: (type: string, content: string) => void,
-  thinkingLogger?: (content: string) => void
-): Promise<BuildingUsageResult> {
+): BuildingUsageResult {
   const result: BuildingUsageResult = {
     blacksmithUsed: false,
     marketUsed: false,
@@ -35,26 +46,75 @@ export async function handleBuildingUsage(
     failedActions: []
   };
 
-  // Check if player has any usable buildings or affordable build actions
   const hasBlacksmith = player.buildings.includes("blacksmith");
   const hasMarket = player.buildings.includes("market");
   const hasFletcher = player.buildings.includes("fletcher");
 
-  const canAffordBuildActions = checkAvailableBuildActions(player).length > 0;
-
-  if (!hasBlacksmith && !hasMarket && !hasFletcher && !canAffordBuildActions) {
-    return result; // No buildings to use and no build actions available
-  }
-
-  // Ask player for building decision (both usage and build action)
-  const buildingDecision = await playerAgent.useBuilding(gameState, gameLog, player.name, thinkingLogger);
-
   // Collect all actions for consolidated logging
   const logParts: string[] = [];
 
-  // Process building usage first
+  // Process building usage first.
+  // The market is processed before the blacksmith and fletcher: gold gained from selling
+  // can fund a might purchase in the same harvest phase, while might purchases never
+  // produce anything a sale could depend on. Processing the market last would silently
+  // break "sell resources, then buy might" plans.
   if (buildingDecision.buildingUsageDecision) {
     const usageDecision = buildingDecision.buildingUsageDecision;
+
+    // Process market usage
+    if (usageDecision.sellAtMarket) {
+      if (hasMarket && Object.values(usageDecision.sellAtMarket).some(amount => amount > 0)) {
+        // The market sells resources at 2:1 for gold. Different resource types can be POOLED:
+        // e.g. selling 3 food and 1 wood yields 2 gold. Only the converted resources are deducted;
+        // an odd leftover resource is kept by the player.
+        const offered: Array<{ type: ResourceType; amount: number }> = [];
+        for (const [resourceType, amount] of Object.entries(usageDecision.sellAtMarket)) {
+          if (amount > 0 && resourceType !== "gold") {
+            const resourceKey = resourceType as ResourceType;
+            const actualAmount = Math.min(amount, player.resources[resourceKey]);
+            if (actualAmount > 0) {
+              offered.push({ type: resourceKey, amount: actualAmount });
+            }
+          }
+        }
+
+        const totalOffered = offered.reduce((sum, o) => sum + o.amount, 0);
+        const goldGained = Math.floor(totalOffered / GameSettings.MARKET_EXCHANGE_RATE);
+        let toDeduct = goldGained * GameSettings.MARKET_EXCHANGE_RATE;
+
+        if (goldGained > 0) {
+          let totalSold = 0;
+          const resourcesSoldDetails: string[] = [];
+
+          for (const { type, amount } of offered) {
+            const deductAmount = Math.min(amount, toDeduct);
+            if (deductAmount > 0) {
+              player.resources[type] -= deductAmount;
+              toDeduct -= deductAmount;
+              totalSold += deductAmount;
+              const resourceName = type.charAt(0).toUpperCase() + type.slice(1);
+              resourcesSoldDetails.push(`${deductAmount} ${resourceName}`);
+            }
+          }
+
+          player.resources.gold += goldGained;
+          result.marketUsed = true;
+          result.totalGoldGained += goldGained;
+          result.totalResourcesSold += totalSold;
+          logParts.push(`Used market: sold ${resourcesSoldDetails.join(" + ")} for ${goldGained} Gold`);
+        } else {
+          result.failedActions.push({
+            action: "market",
+            reason: `Need at least ${GameSettings.MARKET_EXCHANGE_RATE} resources to sell`
+          });
+        }
+      } else {
+        result.failedActions.push({
+          action: "market",
+          reason: hasMarket ? "No resources to sell" : "No market building"
+        });
+      }
+    }
 
     // Process blacksmith usage
     if (usageDecision.useBlacksmith) {
@@ -69,47 +129,6 @@ export async function handleBuildingUsage(
         result.failedActions.push({
           action: "blacksmith",
           reason: hasBlacksmith ? `Insufficient resources (need ${formatCost(GameSettings.BLACKSMITH_USAGE_COST)})` : "No blacksmith building"
-        });
-      }
-    }
-
-    // Process market usage
-    if (usageDecision.sellAtMarket) {
-      if (hasMarket && Object.values(usageDecision.sellAtMarket).some(amount => amount > 0)) {
-        let totalSold = 0;
-        let goldGained = 0;
-        const resourcesSoldDetails: string[] = [];
-
-        for (const [resourceType, amount] of Object.entries(usageDecision.sellAtMarket)) {
-          if (amount > 0 && resourceType !== "gold") {
-            const resourceKey = resourceType as ResourceType;
-            const actualAmount = Math.min(amount, player.resources[resourceKey]);
-
-            if (actualAmount > 0) {
-              player.resources[resourceKey] -= actualAmount;
-              totalSold += actualAmount;
-
-              // Market sells at 2:1 ratio (2 resources for 1 gold)
-              const goldFromThisResource = Math.floor(actualAmount / GameSettings.MARKET_EXCHANGE_RATE);
-              goldGained += goldFromThisResource;
-
-              const resourceName = resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
-              resourcesSoldDetails.push(`${actualAmount} ${resourceName}`);
-            }
-          }
-        }
-
-        if (goldGained > 0) {
-          player.resources.gold += goldGained;
-          result.marketUsed = true;
-          result.totalGoldGained += goldGained;
-          result.totalResourcesSold += totalSold;
-          logParts.push(`Used market: sold ${resourcesSoldDetails.join(" + ")} for ${goldGained} Gold`);
-        }
-      } else {
-        result.failedActions.push({
-          action: "market",
-          reason: hasMarket ? "No resources to sell" : "No market building"
         });
       }
     }
@@ -135,7 +154,7 @@ export async function handleBuildingUsage(
   // Process build action (happens after building usage)
   if (buildingDecision.buildAction) {
     try {
-      const buildResult = handleBuildAction(player, buildingDecision.buildAction, () => { }); // Don't log individually
+      const buildResult = handleBuildAction(player, buildingDecision.buildAction, () => { }, undefined, gameState); // Don't log individually
       if (buildResult.actionSuccessful) {
         result.buildActionPerformed = buildingDecision.buildAction;
 
@@ -159,6 +178,11 @@ export async function handleBuildingUsage(
         reason: error instanceof Error ? error.message : String(error)
       });
     }
+  }
+
+  // Failed actions are logged too, so silently dropped plans are visible in the game log
+  for (const failed of result.failedActions) {
+    logParts.push(`FAILED ${failed.action}: ${failed.reason}`);
   }
 
   // Create consolidated log entry if any actions were performed

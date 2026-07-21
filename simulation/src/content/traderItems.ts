@@ -44,6 +44,8 @@ export const TRADER_ITEMS: TraderItem[] = [
     count: 2,
   },
   {
+    // Disabled in the simulator: attacking a neighboring tile without moving is not supported by the engine
+    disabled: true,
     id: "ellions-bow",
     name: "Ellion's bow",
     description: "You may initiate an attack on a neighboring tile as if you were there.",

@@ -204,7 +204,7 @@ export default function CheatSheet() {
                   <strong>1. King of Doomspire</strong>: First to reach 2 dragon impressions
                 </div>
                 <div className={styles.building}>
-                  <strong>2. Hand of the King</strong>: Most resource tiles (tiebreaker: starred tiles)
+                  <strong>2. Hand of the King</strong>: Most resource tiles, home counts (tiebreaker: starred tiles)
                 </div>
                 <div className={styles.building}>
                   <strong>3. Master of Coin</strong>: Most gold (tiebreaker: total resources)

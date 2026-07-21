@@ -2,11 +2,11 @@
 // Routes all decisions through specific goals based on current game state
 
 import { GameState } from "@/game/GameState";
-import { BuildingDecision, DiceAction } from "@/lib/actionTypes";
+import { DiceAction, HarvestDecision } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { GameSettings } from "@/lib/GameSettings";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
-import { AdventureThemeType, Decision, DecisionContext, GameLogEntry, PlayerType, TurnContext } from "@/lib/types";
+import { Decision, DecisionContext, GameLogEntry, PlayerType, TurnContext } from "@/lib/types";
 import { PlayerAgent } from "./PlayerAgent";
 import { Goal } from "./goals/Goal";
 import { ObtainBlacksmith } from "./goals/ObtainBlacksmith";
@@ -32,10 +32,12 @@ export class GoalPlayer implements PlayerAgent {
   }
 
   /**
-   * Select the appropriate goal based on current game state
+   * Select the appropriate goal based on current game state.
+   * Pass playerName when the decision may happen outside this player's own turn
+   * (e.g. the parallel harvest phase, where getCurrentPlayer() is not reliable).
    */
-  private selectCurrentGoal(gameState: GameState): Goal {
-    const player = gameState.getCurrentPlayer();
+  private selectCurrentGoal(gameState: GameState, playerName?: string): Goal {
+    const player = (playerName ? gameState.getPlayer(playerName) : undefined) ?? gameState.getCurrentPlayer();
 
     // If player doesn't have blacksmith and can't afford it, focus on obtaining it
     const hasBlacksmith = player.buildings.includes("blacksmith");
@@ -53,7 +55,6 @@ export class GoalPlayer implements PlayerAgent {
     diceValues: number[],
     turnNumber: number,
     traderItems: readonly TraderCard[],
-    adventureDeckThemes: [AdventureThemeType, AdventureThemeType, AdventureThemeType],
     thinkingLogger?: (content: string) => void,
   ): Promise<string | undefined> {
     const currentGoal = this.selectCurrentGoal(gameState);
@@ -64,7 +65,6 @@ export class GoalPlayer implements PlayerAgent {
         diceValues,
         turnNumber,
         traderItems,
-        adventureDeckThemes,
         thinkingLogger
       );
     }
@@ -108,13 +108,14 @@ export class GoalPlayer implements PlayerAgent {
     return await currentGoal.makeTraderDecision(gameState, gameLog, traderContext, thinkingLogger);
   }
 
-  async useBuilding(
+  async makeHarvestDecision(
     gameState: GameState,
     gameLog: readonly GameLogEntry[],
     playerName: string,
+    savedDiceValues: number[],
     thinkingLogger?: (content: string) => void,
-  ): Promise<BuildingDecision> {
-    const currentGoal = this.selectCurrentGoal(gameState);
-    return await currentGoal.useBuilding(gameState, gameLog, playerName, thinkingLogger);
+  ): Promise<HarvestDecision> {
+    const currentGoal = this.selectCurrentGoal(gameState, playerName);
+    return await currentGoal.makeHarvestDecision(gameState, gameLog, playerName, savedDiceValues, thinkingLogger);
   }
 }

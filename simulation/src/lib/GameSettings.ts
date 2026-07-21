@@ -3,15 +3,19 @@
 
 export class GameSettings {
   // Dragon Combat Settings
-  static readonly DRAGON_BASE_MIGHT = 8; // Base might before adding D3
+  static readonly DRAGON_BASE_MIGHT = 8; // The dragon's might (added to its 2D3 roll in combat)
 
   // Victory Condition Settings
   static readonly VICTORY_FAME_THRESHOLD = 17; // Fame needed to impress the dragon
   static readonly VICTORY_GOLD_THRESHOLD = 12; // Gold needed to impress the dragon
   static readonly VICTORY_STARRED_TILES_THRESHOLD = 4; // Number of starred resource tiles needed to win
-  static readonly DRAGON_IMPRESSIONS_TO_WIN = 2; // Number of dragon impressions needed to win the game
+  static readonly DRAGON_IMPRESSIONS_TO_WIN = 2; // Number of dragon impressions (per player) needed to win the game
 
-  static readonly FAME_AWARD_FOR_EXPLORATION = 1; // Fame awarded for exploring a tile group
+  // Dragon Treasure Hoard (created when Doomspire is revealed)
+  static readonly DRAGON_TREASURE_STACK_COUNT = 3; // Number of treasure stacks
+  static readonly DRAGON_TREASURE_PER_RESOURCE_TYPE = 3; // Resources of each type in the hoard (3 x 4 types = 12, split into 3 stacks of 4)
+
+  static readonly FAME_AWARD_FOR_EXPLORATION = 1; // Fame awarded for exploring a tile
 
   // Dice System Settings
   static readonly FREE_DICE_COUNT = 2; // Number of dice you can roll for free each turn
@@ -50,9 +54,12 @@ export class GameSettings {
   static readonly DEFEAT_FAME_PENALTY = 1; // Fame lost when defeated with no resources to pay healing costs
   static readonly COMBAT_SUPPORT_BONUS = 2; // Might bonus per supporting unit (knight or warship) in combat
 
-  // Tile Interaction Costs
-  static readonly CONQUEST_MIGHT_COST = 1; // Might cost to conquer a tile
-  static readonly REVOLT_FAME_COST = 1; // Fame cost to incite revolt
+  // Tile Interaction Costs (taking over another player's unprotected resource tile)
+  static readonly CONQUER_FAME_COST = 2; // Fame cost to conquer a tile by force
+  static readonly BRIBE_GOLD_COST = 2; // Gold cost to take over a tile through bribery
+
+  // Followers
+  static readonly MAX_FOLLOWERS_PER_CHAMPION = 2; // Maximum number of followers per champion
 
   // Might Rewards
   static readonly MERCENARY_MIGHT_REWARD = 1; // Might gained from mercenary camp

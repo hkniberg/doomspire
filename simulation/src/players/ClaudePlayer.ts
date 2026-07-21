@@ -1,13 +1,14 @@
 // Lords of Doomspire Claude AI Player
 
 import { getTraderItemById } from "@/content/traderItems";
+import { getEligibleHarvestTiles } from "@/engine/actions/harvestCalculator";
 import { formatBuildingInfo, stringifyGameState, stringifyPlayer } from "@/game/gameStateStringifier";
-import { BuildingDecision, DiceAction } from "@/lib/actionTypes";
+import { DiceAction, HarvestDecision } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
-import { AdventureThemeType, Decision, DecisionContext, GameLogEntry, Player, PlayerType, TurnContext } from "@/lib/types";
+import { Decision, DecisionContext, GameLogEntry, Player, PlayerType, TurnContext } from "@/lib/types";
 import { GameState } from "../game/GameState";
-import { buildingDecisionSchema, decisionSchema, diceActionSchema, traderDecisionSchema } from "../lib/claudeSchemas";
+import { decisionSchema, diceActionSchema, harvestDecisionSchema, traderDecisionSchema } from "../lib/claudeSchemas";
 import { GameSettings } from "../lib/GameSettings";
 import { TemplateProcessor, TemplateVariables } from "../lib/templateProcessor";
 import { Claude } from "../llm/claude";
@@ -40,10 +41,9 @@ export class ClaudePlayerAgent implements PlayerAgent {
         diceValues: number[],
         turnNumber: number,
         traderItems: readonly TraderCard[],
-        adventureDeckThemes: [AdventureThemeType, AdventureThemeType, AdventureThemeType],
         thinkingLogger?: (content: string) => void,
     ): Promise<string | undefined> {
-        const userMessage = await this.prepareAssessmentMessage(gameState, gameLog, diceValues, turnNumber, traderItems, adventureDeckThemes);
+        const userMessage = await this.prepareAssessmentMessage(gameState, gameLog, diceValues, turnNumber, traderItems);
 
         // Get text response for strategic assessment
         const strategicAssessment = await this.claude.useClaude(userMessage, undefined, 3000, 6000, thinkingLogger);
@@ -63,8 +63,19 @@ export class ClaudePlayerAgent implements PlayerAgent {
         // Get LLM response with structured JSON
         const response = await this.claude.useClaude(userMessage, diceActionSchema, 1024, 3000, thinkingLogger);
 
-        // Convert the nested response to flat GameAction format
-        return response as DiceAction;
+        const action = response as DiceAction;
+
+        // Defensive check: the schema requires a payload matching the actionType,
+        // but fail with a clear message if the response is somehow malformed anyway
+        const payload = action.actionType === "championAction" ? action.championAction
+            : action.actionType === "boatAction" ? action.boatAction
+                : action.actionType === "harvestAction" ? action.harvestAction
+                    : undefined;
+        if (!payload) {
+            throw new Error(`Claude returned actionType "${action.actionType}" without a matching payload: ${JSON.stringify(action)}`);
+        }
+
+        return action;
     }
 
     async makeDecision(
@@ -81,11 +92,25 @@ export class ClaudePlayerAgent implements PlayerAgent {
         // Prepare decision context message
         const userMessage = await this.prepareDecisionMessage(gameState, gameLog, decisionContext);
 
-        // Get structured JSON response for decision
-        const response = await this.claude.useClaude(userMessage, decisionSchema, 0, 400, thinkingLogger);
-
-        // Validate that the chosen option is valid
+        // Constrain the choice to the exact option ids, so the model cannot answer with
+        // e.g. an option number or a differently-cased name (structured outputs enforce the enum)
         const validChoices = decisionContext.options.map(opt => opt.id);
+        const schema = {
+            ...decisionSchema,
+            properties: {
+                ...decisionSchema.properties,
+                choice: {
+                    type: "string",
+                    enum: validChoices,
+                    description: "The id of the chosen option"
+                }
+            }
+        };
+
+        // Get structured JSON response for decision
+        const response = await this.claude.useClaude(userMessage, schema, 0, 2000, thinkingLogger);
+
+        // Validate that the chosen option is valid (should be guaranteed by the enum)
         if (!validChoices.includes(response.choice)) {
             throw new Error(`Invalid choice: ${response.choice}. Valid options: ${validChoices.join(', ')}`);
         }
@@ -108,12 +133,13 @@ export class ClaudePlayerAgent implements PlayerAgent {
         return response as TraderDecision;
     }
 
-    async useBuilding(
+    async makeHarvestDecision(
         gameState: GameState,
         gameLog: readonly GameLogEntry[],
         playerName: string,
+        savedDiceValues: number[],
         thinkingLogger?: (content: string) => void,
-    ): Promise<BuildingDecision> {
+    ): Promise<HarvestDecision> {
         const player = gameState.getPlayer(playerName);
         if (!player) {
             throw new Error(`Player with name ${playerName} not found`);
@@ -123,17 +149,17 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const usableBuildings = getUsableBuildings(player);
         const availableBuildActions = this.getAvailableBuildActions(player);
 
-        if (usableBuildings.length === 0 && availableBuildActions.length === 0) {
-            // No buildings can be used and no build actions available, return empty decision
+        if (savedDiceValues.length === 0 && usableBuildings.length === 0 && availableBuildActions.length === 0) {
+            // Nothing to harvest, no buildings to use, and no build actions available
             return {};
         }
 
-        const userMessage = await this.prepareBuildingDecisionMessage(gameState, gameLog, playerName, usableBuildings, availableBuildActions);
+        const userMessage = await this.prepareHarvestDecisionMessage(gameState, gameLog, playerName, savedDiceValues, usableBuildings, availableBuildActions);
 
-        // Get structured JSON response for building decision
-        const response = await this.claude.useClaude(userMessage, buildingDecisionSchema, 1024, 3000, thinkingLogger);
+        // Get structured JSON response for the harvest phase decision
+        const response = await this.claude.useClaude(userMessage, harvestDecisionSchema, 1024, 3000, thinkingLogger);
 
-        return response as BuildingDecision;
+        return response as HarvestDecision;
     }
 
     private async prepareAssessmentMessage(
@@ -142,7 +168,6 @@ export class ClaudePlayerAgent implements PlayerAgent {
         diceRolls: number[],
         turnNumber: number,
         traderItems: readonly TraderCard[],
-        adventureDeckThemes: [AdventureThemeType, AdventureThemeType, AdventureThemeType],
     ): Promise<string> {
         const boardState = stringifyGameState(gameState);
         const gameLogText = this.formatGameLogForPrompt(gameLog, false, false);
@@ -167,21 +192,10 @@ export class ClaudePlayerAgent implements PlayerAgent {
             ? `\nTrader Items Available:\n${traderItemsText}`
             : "\nTrader Items Available: None";
 
-        // Format adventure deck themes
-        const getThemeDescription = (theme: AdventureThemeType): string => {
-            switch (theme) {
-                case "beast":
-                    return "Beast theme. Higher chance of food loot.";
-                case "grove":
-                    return "Grove theme. Higher chance of wood loot.";
-                case "cave":
-                    return "Cave theme. Higher chance of ore loot.";
-            }
-        };
-
-        const adventureDecksText = adventureDeckThemes
-            .map((theme, index) => `- Tier ${index + 1} top card: ${getThemeDescription(theme)}`)
-            .join("\n");
+        // Describe the current fate card (round-scoped effects)
+        const fateSection = gameState.fateEffects.fateCardName
+            ? `\nCurrent fate card: ${gameState.fateEffects.fateCardName} (applies this round only)`
+            : "";
 
         const variables: TemplateVariables = {
             playerName: this.name,
@@ -191,7 +205,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
             turnNumber: turnNumber,
             extraInstructions: this.getExtraInstructionsSection(gameState),
             traderItems: traderItemsSection,
-            adventureCards: `\nAdventure decks:\n${adventureDecksText}`,
+            adventureCards: fateSection,
         };
 
         return await this.templateProcessor.processTemplate("strategicAssessment", variables);
@@ -226,14 +240,17 @@ export class ClaudePlayerAgent implements PlayerAgent {
         gameLog: readonly GameLogEntry[],
         decisionContext: DecisionContext,
     ): Promise<string> {
-        const player = gameState.getCurrentPlayer();
+        // Use this agent's own name, NOT gameState.getCurrentPlayer(): decisions can be
+        // requested outside this player's turn (fate card votes, blocking decisions,
+        // combat support), where the current player is someone else.
         const gameLogText = this.formatGameLogForPrompt(gameLog, true, true);
         const boardState = stringifyGameState(gameState);
 
-        const optionsText = decisionContext.options.map((option, i) => `${i + 1}. ${option.id} - ${option.description}`).join("\n");
+        // List options by id (no numbering - a numbered list tempts the model to answer with the number)
+        const optionsText = decisionContext.options.map((option) => `- "${option.id}": ${option.description}`).join("\n");
 
         const variables: TemplateVariables = {
-            playerName: player.name,
+            playerName: this.name,
             description: decisionContext.description,
             options: optionsText,
             boardState: boardState,
@@ -249,7 +266,11 @@ export class ClaudePlayerAgent implements PlayerAgent {
         gameLog: readonly GameLogEntry[],
         traderContext: TraderContext,
     ): Promise<string> {
-        const player = gameState.getCurrentPlayer();
+        // Use this agent's own player, not getCurrentPlayer(), for safety outside own turn
+        const player = gameState.getPlayer(this.name);
+        if (!player) {
+            throw new Error(`Player with name ${this.name} not found`);
+        }
         const gameLogText = this.formatGameLogForPrompt(gameLog, true, true);
         const playerStatus = stringifyPlayer(player, gameState);
 
@@ -288,10 +309,11 @@ export class ClaudePlayerAgent implements PlayerAgent {
         return await this.templateProcessor.processTemplate("traderDecision", variables);
     }
 
-    private async prepareBuildingDecisionMessage(
+    private async prepareHarvestDecisionMessage(
         gameState: GameState,
         gameLog: readonly GameLogEntry[],
         playerName: string,
+        savedDiceValues: number[],
         usableBuildings: string[],
         availableBuildActions: string[],
     ): Promise<string> {
@@ -303,6 +325,9 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const boardState = stringifyGameState(gameState);
         const gameLogText = this.formatGameLogForPrompt(gameLog, true, true);
         const playerStatus = stringifyPlayer(player, gameState);
+
+        // Build the harvest options summary
+        const harvestInfo = this.buildHarvestInfoSummary(gameState, playerName, savedDiceValues);
 
         // Build available buildings summary
         const availableBuildings = this.buildAvailableBuildingsSummary(player, usableBuildings);
@@ -317,6 +342,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
             boardState: boardState,
             gameLog: gameLogText,
             playerStatus: playerStatus,
+            harvestInfo: harvestInfo,
             availableBuildings: availableBuildings,
             availableBuildActions: buildActionsText,
             extraInstructions: this.getExtraInstructionsSection(gameState),
@@ -325,13 +351,42 @@ export class ClaudePlayerAgent implements PlayerAgent {
         return await this.templateProcessor.processTemplate("useBuilding", variables);
     }
 
+    private buildHarvestInfoSummary(gameState: GameState, playerName: string, savedDiceValues: number[]): string {
+        if (savedDiceValues.length === 0) {
+            return "You saved no dice for harvesting, so you cannot harvest this round. Leave harvestTiles empty.";
+        }
+
+        const diceSum = savedDiceValues.reduce((sum, value) => sum + value, 0);
+        const diceString = savedDiceValues.map(die => `[${die}]`).join("+");
+        const eligibleTiles = getEligibleHarvestTiles(gameState, playerName);
+
+        if (eligibleTiles.length === 0) {
+            return `You saved dice ${diceString} for harvesting, but there are no tiles you can currently harvest from. Leave harvestTiles empty.`;
+        }
+
+        const tileLines = eligibleTiles.map(tile => {
+            const yields = Object.entries(tile.resources || {})
+                .filter(([, amount]) => (amount || 0) > 0)
+                .map(([resource, amount]) => `${amount} ${resource}`)
+                .join(" + ");
+            return `- (${tile.position.row}, ${tile.position.col}): ${yields}`;
+        });
+
+        return [
+            `You saved dice ${diceString} (total value ${diceSum}) for harvesting.`,
+            `You may harvest from up to ${diceSum} different tiles. Eligible tiles:`,
+            ...tileLines,
+            `Set harvestTiles to the positions of the tiles you want to harvest from.`,
+        ].join("\n");
+    }
+
     private buildAvailableBuildingsSummary(player: Player, usableBuildings: string[]): string {
         const buildingSummaries: string[] = [];
 
         // Check for Blacksmith
         if (player.buildings.includes("blacksmith")) {
             const canUseBlacksmith = usableBuildings.includes("blacksmith");
-            const status = canUseBlacksmith ? "Available" : "Cannot use (need 1 Gold + 2 Ore)";
+            const status = canUseBlacksmith ? "Available" : "Cannot use (need 1 Gold + 3 Ore)";
             buildingSummaries.push(`- ${formatBuildingInfo("blacksmith")}: ${status}`);
         }
 
@@ -446,8 +501,8 @@ export class ClaudePlayerAgent implements PlayerAgent {
                 return false;
             }
 
-            // If onlyMe is true, only include this player's entries
-            if (onlyMe && entry.playerName !== this.name) {
+            // If onlyMe is true, only include this player's entries (plus table-wide entries like fate cards)
+            if (onlyMe && entry.playerName !== undefined && entry.playerName !== this.name) {
                 return false;
             }
 
@@ -462,7 +517,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
                     // Recent rounds: include all entries (assessments already filtered above)
                     return true;
                 } else {
-                    // Earlier rounds: only include this player's entries
+                    // Earlier rounds: only include this player's entries (table-wide entries are dropped)
                     return entry.playerName === this.name;
                 }
             }
@@ -486,7 +541,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
             .sort(([a], [b]) => parseInt(a) - parseInt(b))
             .map(([round, entries]) => {
                 const roundNumber = parseInt(round);
-                const roundEntries = entries.map((entry) => `  ${entry.playerName}: ${entry.content}`).join("\n");
+                const roundEntries = entries.map((entry) => `  ${entry.playerName ?? "(all players)"}: ${entry.content}`).join("\n");
 
                 // Add clarification when we're only showing this player's entries (earlier rounds or onlyMe mode)
                 const isFilteredRound = roundNumber < previousRound || onlyMe;

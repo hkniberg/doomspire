@@ -41,6 +41,16 @@ function runSpecificTurns(numTurns, extraArgs = []) {
   }
 }
 
+const PLAYER_TYPE_CHOICES = [
+  "random",
+  "goal",
+  "claude",
+  "claude:haiku",
+  "claude:sonnet",
+  "claude:opus",
+  "claude:fable",
+];
+
 // Configure yargs
 const argv = yargs
   .usage("🎮 Lords of Doomspire Simulation Runner\n\nUsage: $0 <command> [options]")
@@ -99,21 +109,22 @@ const argv = yargs
   })
 
   // Player configuration options
+  // Claude players default to sonnet; pick a model with e.g. claude:haiku, claude:opus, claude:fable
   .option("p1", {
-    choices: ["random", "claude", "goal"],
-    description: "Player 1 type (random, claude, or goal)",
+    choices: PLAYER_TYPE_CHOICES,
+    description: "Player 1 type (random, claude[:model], or goal)",
   })
   .option("p2", {
-    choices: ["random", "claude", "goal"],
-    description: "Player 2 type (random, claude, or goal)",
+    choices: PLAYER_TYPE_CHOICES,
+    description: "Player 2 type (random, claude[:model], or goal)",
   })
   .option("p3", {
-    choices: ["random", "claude", "goal"],
-    description: "Player 3 type (random, claude, or goal)",
+    choices: PLAYER_TYPE_CHOICES,
+    description: "Player 3 type (random, claude[:model], or goal)",
   })
   .option("p4", {
-    choices: ["random", "claude", "goal"],
-    description: "Player 4 type (random, claude, or goal)",
+    choices: PLAYER_TYPE_CHOICES,
+    description: "Player 4 type (random, claude[:model], or goal)",
   })
 
   // Claude instructions
@@ -129,7 +140,8 @@ Examples:
   $0 --single-turn                          # Test one turn
   $0 --turns 5                             # Run 5 turns
   $0 --complete                             # Run complete game
-  $0 --single-turn --p1 claude             # 1 turn, Player 1 is Claude AI
+  $0 --single-turn --p1 claude             # 1 turn, Player 1 is Claude AI (sonnet)
+  $0 --single-turn --p1 claude:opus        # 1 turn, Player 1 is Claude Opus
   $0 --complete --p1 random --p2 claude    # Complete game, mixed players
   $0 --complete --max-rounds 25            # Complete game with 25 max rounds
   $0 --complete --seed 12345               # Complete game with specific board layout

@@ -7,8 +7,6 @@ type ActionType = "movement" | "harvest" | "diceSelection";
 interface HumanPlayerStatusProps {
   actionType: ActionType;
   championId?: number;
-  selectedTileCount?: number;
-  maxTiles?: number;
   onCancel: () => void;
   onDone: () => void;
   canCancel: boolean;
@@ -18,8 +16,6 @@ interface HumanPlayerStatusProps {
 const HumanPlayerStatus: React.FC<HumanPlayerStatusProps> = ({
   actionType,
   championId,
-  selectedTileCount,
-  maxTiles,
   onCancel,
   onDone,
   canCancel,
@@ -29,7 +25,7 @@ const HumanPlayerStatus: React.FC<HumanPlayerStatusProps> = ({
     if (actionType === "movement") {
       return `Moving Champion ${championId}`;
     } else if (actionType === "harvest") {
-      return "Harvest Action";
+      return "Save Die for Harvest";
     } else {
       return "Your Turn";
     }
@@ -39,9 +35,9 @@ const HumanPlayerStatus: React.FC<HumanPlayerStatusProps> = ({
     if (actionType === "movement") {
       return "⌨️ Use WASD keys to move → Enter to finish / Esc to cancel";
     } else if (actionType === "harvest") {
-      return `🌾 ${selectedTileCount}/${maxTiles} tile(s) selected → Enter to confirm / Esc to cancel`;
+      return "🌾 Save the selected die for the harvest phase (you pick tiles when the harvest phase starts)";
     } else {
-      return "🎲 Click on a dice to use it, then click on a knight to move it or click on tiles to harvest from";
+      return "🎲 Click on a dice to use it, then click on a knight to move it, or save the die for the harvest phase";
     }
   };
 
@@ -65,15 +61,15 @@ const HumanPlayerStatus: React.FC<HumanPlayerStatusProps> = ({
   };
 
   const getConfirmButtonText = () => {
-    return actionType === "movement" ? "✓ Done" : "✓ Harvest";
+    return actionType === "movement" ? "✓ Done" : "✓ Save for harvest";
   };
 
   const getConfirmButtonTitle = () => {
-    return actionType === "movement" ? "Finish moving champion (Enter key)" : "Confirm harvest action (Enter key)";
+    return actionType === "movement" ? "Finish moving champion (Enter key)" : "Save this die for the harvest phase";
   };
 
   const getCancelButtonTitle = () => {
-    return actionType === "movement" ? "Cancel entire movement (Esc key)" : "Cancel harvest selection (Esc key)";
+    return actionType === "movement" ? "Cancel entire movement (Esc key)" : "Deselect the die";
   };
 
   return (

@@ -1,8 +1,9 @@
 import { getTreasureCardById } from "@/content/treasureCards";
 import { GameState } from "@/game/GameState";
-import { Decision, DecisionContext, GameLogEntry, Player, Tile, TileTier } from "@/lib/types";
+import { Decision, DecisionContext, GameLogEntry, Monster, Player, Tile, TileTier } from "@/lib/types";
 import { PlayerAgent } from "@/players/PlayerAgent";
-import { canChampionCarryMoreItems, createDropItemDecision, handleDropItemDecision } from "@/players/PlayerUtils";
+import { canChampionCarryMoreItems, createDropItemDecision, getItemSlotSize, handleDropItemDecision } from "@/players/PlayerUtils";
+import { resolveImmediateCombat } from "./combatHandler";
 import { handleMysteriousRing } from "./cardHandlers/mysteriousRingHandler";
 import { handleSwordInStone } from "./cardHandlers/swordInStoneHandler";
 
@@ -57,10 +58,134 @@ export async function handleTreasureCard(
     case "sword-in-stone":
       return await handleSwordInStone(gameState, tile, player, playerAgent, championId, logFn, thinkingLogger);
 
+    case "the-second-ring":
+      // Grants +2 fame when found (kept even if the ring is later lost or stolen)
+      return await handleGenericTreasure(treasureCard, gameState, tile, player, playerAgent, championId, logFn, thinkingLogger, {
+        onAcquired: () => {
+          player.fame += 2;
+          logFn("event", `The second ring grants ${player.name} +2 fame!`);
+        }
+      });
+
+    case "staff-of-protection":
+      return await handleStaffOfProtection(treasureCard, gameState, tile, player, playerAgent, championId, logFn, thinkingLogger);
+
+    case "the-black-blade":
+      return await handleBlackBlade(gameState, tile, player, playerAgent, championId, logFn, thinkingLogger);
+
     default:
       // Handle as generic carriable/non-carriable treasure
       return await handleGenericTreasure(treasureCard, gameState, tile, player, playerAgent, championId, logFn, thinkingLogger);
   }
+}
+
+/**
+ * Handle the staff-of-protection treasure card.
+ * A dying wizard leans on the staff. Choose: steal it (lose 2 fame, gain the staff),
+ * give him 2 food (earn 1 fame), or move on.
+ * The staff protects all of the carrier's owner's claimed tiles neighbouring the carrier,
+ * even diagonally (see GameState.isClaimProtected).
+ */
+async function handleStaffOfProtection(
+  treasureCard: any,
+  gameState: GameState,
+  tile: Tile,
+  player: Player,
+  playerAgent: PlayerAgent,
+  championId: number,
+  logFn: (type: string, content: string) => void,
+  thinkingLogger?: (content: string) => void
+): Promise<TreasureCardResult> {
+  const options = [
+    { id: "steal", description: "Steal the staff (lose 2 fame, gain the Staff of Protection)" },
+    ...(player.resources.food >= 2 ? [{ id: "give", description: "Give him 2 food (earn 1 fame)" }] : []),
+    { id: "move_on", description: "Move on (nothing happens)" }
+  ];
+
+  let choice = "move_on";
+  try {
+    const decision = await playerAgent.makeDecision(gameState, [], {
+      description: `You encounter a dying wizard leaning on an interesting looking staff. Choose:`,
+      options
+    }, thinkingLogger);
+    choice = options.some(o => o.id === decision.choice) ? decision.choice : "move_on";
+  } catch (error) {
+    choice = "move_on";
+  }
+
+  if (choice === "steal") {
+    player.fame = Math.max(0, player.fame - 2);
+    logFn("event", `${player.name} steals the staff from the dying wizard, losing 2 fame.`);
+    return await handleGenericTreasure(treasureCard, gameState, tile, player, playerAgent, championId, logFn, thinkingLogger);
+  } else if (choice === "give") {
+    player.resources.food -= 2;
+    player.fame += 1;
+    logFn("event", `${player.name} gives the dying wizard 2 food and earns 1 fame.`);
+    return { cardProcessed: true, cardId: "staff-of-protection" };
+  }
+
+  logFn("event", `${player.name} moves on, leaving the wizard to his fate.`);
+  return { cardProcessed: true, cardId: "staff-of-protection" };
+}
+
+/**
+ * Handle the-black-blade treasure card.
+ * Fight a ghostly knight (might 7). Winning yields the black blade:
+ * -1 might, but each battle a follower may be sacrificed for +5 might (see combatHandler).
+ *
+ * Simulator simplification: the ghostly knight does not re-emerge if the blade changes owner.
+ */
+async function handleBlackBlade(
+  gameState: GameState,
+  tile: Tile,
+  player: Player,
+  playerAgent: PlayerAgent,
+  championId: number,
+  logFn: (type: string, content: string) => void,
+  thinkingLogger?: (content: string) => void
+): Promise<TreasureCardResult> {
+  const ghostlyKnight: Monster = {
+    id: "ghostly-knight",
+    name: "Ghostly Knight",
+    tier: 3,
+    icon: "",
+    might: 7,
+    fame: 0,
+    resources: { food: 0, wood: 0, ore: 0, gold: 0 },
+    monsterType: "undead",
+  };
+
+  logFn("event", `A ghostly knight guards the black blade! Champion${championId} must fight it (might 7).`);
+
+  const combatResult = await resolveImmediateCombat(gameState, ghostlyKnight, player, championId, logFn);
+
+  if (!combatResult.victory) {
+    return { cardProcessed: true, cardId: "the-black-blade" };
+  }
+
+  logFn("event", `The ghostly knight disappears with a shriek, leaving an ominous black blade on the ground!`);
+
+  const champion = player.champions.find(c => c.id === championId);
+  if (!champion) {
+    return { cardProcessed: true, cardId: "the-black-blade" };
+  }
+
+  const bladeCard = getTreasureCardById("the-black-blade");
+  const bladeItem = { treasureCard: bladeCard };
+
+  if (canChampionCarryMoreItems(champion)) {
+    champion.items.push(bladeItem);
+    logFn("event", `Champion${championId} picks up the black blade (-1 might; may sacrifice a follower for +5 might each battle).`);
+  } else {
+    // Inventory full - leave it on the tile
+    if (!tile.items) {
+      tile.items = [];
+    }
+    tile.items.push(bladeItem);
+    logFn("event", `Champion${championId}'s inventory is full - the black blade is left on the ground.`);
+  }
+
+  return { cardProcessed: true, cardId: "the-black-blade" };
 }
 
 /**
@@ -236,7 +361,8 @@ async function handleGenericTreasure(
   playerAgent: PlayerAgent,
   championId: number,
   logFn: (type: string, content: string) => void,
-  thinkingLogger?: (content: string) => void
+  thinkingLogger?: (content: string) => void,
+  opts?: { onAcquired?: () => void }
 ): Promise<TreasureCardResult> {
   // Check if this treasure can be carried as an item
   if (!treasureCard.carriable) {
@@ -259,11 +385,15 @@ async function handleGenericTreasure(
     };
   }
 
-  // Check if champion has space for the item
-  if (canChampionCarryMoreItems(champion)) {
+  const newItem = { treasureCard };
+  const slotSize = getItemSlotSize(newItem);
+
+  // Check if champion has space for the item (the Löng Swörd takes up 2 slots)
+  if (canChampionCarryMoreItems(champion, slotSize)) {
     // Add the item directly
-    champion.items.push({ treasureCard });
+    champion.items.push(newItem);
     logFn("event", `Champion${championId} picked up ${treasureCard.name}.`);
+    opts?.onAcquired?.();
     return {
       cardProcessed: true,
       cardId: treasureCard.id
@@ -285,12 +415,16 @@ async function handleGenericTreasure(
   const itemAcquired = handleDropItemDecision(
     decision,
     champion,
-    { treasureCard },
+    newItem,
     tile,
     championId,
     treasureCard.name,
     logFn
   );
+
+  if (itemAcquired) {
+    opts?.onAcquired?.();
+  }
 
   return {
     cardProcessed: true,

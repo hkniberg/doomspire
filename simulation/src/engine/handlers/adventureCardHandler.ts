@@ -1,11 +1,15 @@
+import { getEncounterById } from "@/content/encounterCards";
 import { getEventCardById } from "@/content/eventCards";
 import { getMonsterCardById } from "@/content/monsterCards";
 import { GameState } from "@/game/GameState";
 import { Card } from "@/lib/cards";
+import { GameSettings } from "@/lib/GameSettings";
 import { EventCardResult, GameLogEntry, Monster, Player, Tile } from "@/lib/types";
 import { PlayerAgent } from "@/players/PlayerAgent";
 import { resolveMonsterPlacementAndCombat } from "./combatHandler";
+import { handleBlessingOfTheLonesome } from "./cardHandlers/blessingOfTheLonesomeHandler";
 import { handleCurseOfTheEarth } from "./cardHandlers/curseOfTheEarthHandler";
+import { handleDragonHunger } from "./cardHandlers/dragonHungerHandler";
 import { handleDragonRaid } from "./cardHandlers/dragonRaidHandler";
 import { handleDruidRampage } from "./cardHandlers/druidRampageHandler";
 import { handleHungryPests } from "./cardHandlers/hungryPestsHandler";
@@ -13,6 +17,7 @@ import { handleLandslide } from "./cardHandlers/landslideHandler";
 import { handleMarketDay } from "./cardHandlers/marketDayHandler";
 import { handleSeaMonsters } from "./cardHandlers/seaMonstersHandler";
 import { handleSuddenStorm } from "./cardHandlers/suddenStormHandler";
+import { handleTempleTrial } from "./cardHandlers/templeTrialHandler";
 import { handleThievingCrows } from "./cardHandlers/thievingCrowsHandler";
 import { handleThugAmbush } from "./cardHandlers/thugAmbushHandler";
 import { handleYouGotRiches } from "./cardHandlers/youGotRichesHandler";
@@ -172,8 +177,14 @@ export async function handleEventCardFromAdventure(
       eventResult = await handleThugAmbush(gameState, player, championId, logFn);
     } else if (cardId === "landslide") {
       eventResult = handleLandslide(gameState, player, championId, logFn);
-    } else if (cardId === "you-got-riches") {
+    } else if (cardId === "riches-for-all") {
       eventResult = handleYouGotRiches(gameState, logFn);
+    } else if (cardId === "dragon-hunger") {
+      eventResult = handleDragonHunger(gameState, logFn);
+    } else if (cardId === "blessing-of-the-lonesome") {
+      eventResult = handleBlessingOfTheLonesome(gameState, logFn);
+    } else if (cardId === "temple-trial") {
+      eventResult = await handleTempleTrial(gameState, player, playerAgent, logFn, thinkingLogger);
     } else if (cardId === "druid-rampage") {
       eventResult = await handleDruidRampage(gameState, tile, player, playerAgent, championId, logFn, thinkingLogger);
     } else if (cardId === "curse-of-the-earth") {
@@ -247,7 +258,64 @@ export async function handleTreasureCard(
 }
 
 /**
- * Handle encounter cards drawn from adventure decks
+ * Offer a follower to a champion. Followers give combat/utility bonuses.
+ * A champion can have at most 2 followers; if full, the player may dismiss one
+ * (dismissed followers are removed from the game).
+ */
+async function offerFollower(
+  encounterId: string,
+  encounterName: string,
+  gameState: GameState,
+  player: Player,
+  playerAgent: PlayerAgent,
+  championId: number,
+  gameLog: readonly GameLogEntry[],
+  logFn: (type: string, content: string) => void,
+  thinkingLogger?: (content: string) => void
+): Promise<boolean> {
+  const champion = gameState.getChampion(player.name, championId);
+  if (!champion) {
+    return false;
+  }
+
+  if (champion.followers.length < GameSettings.MAX_FOLLOWERS_PER_CHAMPION) {
+    champion.followers.push({ id: encounterId, name: encounterName });
+    logFn("event", `${encounterName} joins Champion${championId} as a follower!`);
+    return true;
+  }
+
+  // Champion is at follower capacity - offer to dismiss one
+  try {
+    const decision = await playerAgent.makeDecision(gameState, gameLog, {
+      description: `Champion${championId} already has ${GameSettings.MAX_FOLLOWERS_PER_CHAMPION} followers. Dismiss one to take on ${encounterName}? (Dismissed followers are removed from the game.)`,
+      options: [
+        ...champion.followers.map((follower, index) => ({
+          id: `dismiss_${index}`,
+          description: `Dismiss ${follower.name} and take ${encounterName}`
+        })),
+        { id: "decline", description: `Decline ${encounterName}` }
+      ]
+    }, thinkingLogger);
+
+    if (decision.choice.startsWith("dismiss_")) {
+      const index = parseInt(decision.choice.split("_")[1]);
+      if (index >= 0 && index < champion.followers.length) {
+        const dismissed = champion.followers.splice(index, 1)[0];
+        champion.followers.push({ id: encounterId, name: encounterName });
+        logFn("event", `Champion${championId} dismisses ${dismissed.name} and takes on ${encounterName} as a follower.`);
+        return true;
+      }
+    }
+  } catch (error) {
+    // Decline on error
+  }
+
+  logFn("event", `Champion${championId} declines ${encounterName}.`);
+  return false;
+}
+
+/**
+ * Handle encounter cards drawn from adventure decks (most encounters offer followers)
  */
 export async function handleEncounterCard(
   cardId: string,
@@ -260,19 +328,77 @@ export async function handleEncounterCard(
   logFn: (type: string, content: string) => void,
   thinkingLogger?: (content: string) => void
 ): Promise<AdventureCardResult> {
-  // Encounter cards not yet implemented
-  logFn("event", `Champion${championId} drew encounter card ${cardId}, but encounter cards aren't implemented yet.`);
+  const encounter = getEncounterById(cardId);
+  if (!encounter) {
+    logFn("event", `Champion${championId} drew unknown encounter card ${cardId}`);
+    return {
+      cardProcessed: false,
+      cardType: "encounter",
+      cardId,
+      errorMessage: `Unknown encounter card: ${cardId}`
+    };
+  }
 
-  return {
-    cardProcessed: false,
-    cardType: "encounter",
-    cardId,
-    errorMessage: "Encounter cards not implemented"
-  };
+  logFn("event", `Champion${championId} encountered: ${encounter.name}!`);
+
+  switch (cardId) {
+    case "angry-dog": {
+      // Give it 2 food to gain it as a follower (+1 might in battle), or be chased home
+      if (player.resources.food >= 2) {
+        let feed = true;
+        try {
+          const decision = await playerAgent.makeDecision(gameState, gameLog, {
+            description: `An angry dog blocks the path! Give it 2 food (it joins as a follower granting +1 might in battle), or refuse and be chased home.`,
+            options: [
+              { id: "feed", description: "Give it 2 food (gain the dog as a follower)" },
+              { id: "refuse", description: "Refuse (champion is chased home)" }
+            ]
+          }, thinkingLogger);
+          feed = decision.choice === "feed";
+        } catch (error) {
+          feed = true;
+        }
+
+        if (feed) {
+          player.resources.food -= 2;
+          logFn("event", `Champion${championId} feeds the angry dog 2 food.`);
+          await offerFollower(cardId, encounter.name, gameState, player, playerAgent, championId, gameLog, logFn, thinkingLogger);
+          return { cardProcessed: true, cardType: "encounter", cardId };
+        }
+      } else {
+        logFn("event", `Champion${championId} cannot afford to feed the angry dog (2 food needed).`);
+      }
+
+      // Chased home
+      gameState.moveChampionToHome(player.name, championId);
+      logFn("event", `Champion${championId} is chased home by the angry dog!`);
+      return { cardProcessed: true, cardType: "encounter", cardId };
+    }
+
+    case "priestess":
+    case "proud-mercenary":
+    case "brawler":
+    case "witch":
+    case "fairy-godmother": {
+      // Simple follower offers
+      await offerFollower(cardId, encounter.name, gameState, player, playerAgent, championId, gameLog, logFn, thinkingLogger);
+      return { cardProcessed: true, cardType: "encounter", cardId };
+    }
+
+    default: {
+      logFn("event", `Encounter card ${encounter.name} (${cardId}) is not implemented - nothing happens.`);
+      return {
+        cardProcessed: false,
+        cardType: "encounter",
+        cardId,
+        errorMessage: `Encounter card ${cardId} not implemented`
+      };
+    }
+  }
 }
 
 /**
- * Handle follower cards drawn from adventure decks
+ * Handle follower cards drawn from adventure decks (same handling as encounters)
  */
 export async function handleFollowerCard(
   cardId: string,
@@ -285,15 +411,7 @@ export async function handleFollowerCard(
   logFn: (type: string, content: string) => void,
   thinkingLogger?: (content: string) => void
 ): Promise<AdventureCardResult> {
-  // Follower cards not yet implemented
-  logFn("event", `Champion${championId} drew follower card ${cardId}, but follower cards aren't implemented yet.`);
-
-  return {
-    cardProcessed: false,
-    cardType: "follower",
-    cardId,
-    errorMessage: "Follower cards not implemented"
-  };
+  return handleEncounterCard(cardId, gameState, tile, player, playerAgent, championId, gameLog, logFn, thinkingLogger);
 }
 
 /**

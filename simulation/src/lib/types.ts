@@ -76,9 +76,17 @@ export interface Tile {
   tileType?: TileType;
   backColor?: string; // Background color set by BoardBuilder
   borderColor?: string; // Border color set by BoardBuilder
-  tileGroup?: number; // Optional group identifier - when one tile in group is explored, all tiles in group are explored
+  tileGroup?: number; // Optional group identifier used during board placement
   items?: CarriableItem[]; // Items present on this tile
-  impressionCounter?: number; // Number of times the dragon has been impressed at this tile (only relevant for doomspire)
+  treasureStacks?: Record<ResourceType, number>[]; // Dragon's treasure hoard stacks (only relevant for doomspire)
+}
+
+/**
+ * A follower that has joined a champion (obtained through adventure cards)
+ */
+export interface Follower {
+  id: string; // Encounter card id
+  name: string;
 }
 
 export interface Champion {
@@ -86,7 +94,8 @@ export interface Champion {
   position: Position;
   playerName: string;
   items: CarriableItem[]; // Items held by the champion
-  followers: string[]; // not implemented yet.
+  followers: Follower[]; // Followers accompanying the champion (max 2)
+  hasInteractedThisRound?: boolean; // Once a champion interacts with a tile, it cannot use more action dice this round
 }
 
 export interface Boat {
@@ -123,7 +132,7 @@ export interface Player {
   fame: number;
   might: number;
   resources: Record<ResourceType, number>;
-  maxClaims: number;
+  dragonImpressions: number; // Number of times this player has impressed the dragon (2 = win)
   champions: Champion[];
   boats: Boat[];
   buildings: BuildingType[]; // Buildings constructed in the player's castle
@@ -131,6 +140,8 @@ export interface Player {
   extraInstructions?: string; // Optional extra instructions for AI players
   statistics?: PlayerStatistics; // Match statistics tracking
   finalRank?: "King of Doomspire" | "Hand of the King" | "Master of Coin" | "Court Jester"; // Final ranking when game ends
+  impressedDragonThisRound?: boolean; // A player can impress the dragon at most once per round
+  specialTileUsesThisRound?: Partial<Record<"temple" | "mercenary" | "trader", boolean>>; // Special locations can only be used once per round
 }
 
 
@@ -221,14 +232,43 @@ export interface Decision {
 
 
 
-export type GameLogEntryType = "dice" | "movement" | "boat" | "exploration" | "combat" | "harvest" | "assessment" | "event" | "system" | "victory" | "thinking" | "error";
+export type GameLogEntryType = "dice" | "movement" | "boat" | "exploration" | "combat" | "harvest" | "assessment" | "event" | "system" | "victory" | "thinking" | "error" | "fate" | "building";
+
+/**
+ * The four phases of a round, as defined in the game rules.
+ */
+export type GamePhase = "fate" | "roll" | "move" | "harvest";
+
+/**
+ * Round-scoped effects from the current fate card. Reset at the start of each round.
+ */
+export interface FateEffects {
+  fateCardId?: string;
+  fateCardName?: string;
+  settling?: boolean; // No deliberate combat: knights cannot move into a tile with another knight or a creature
+  noPvpCombat?: boolean; // Ceasefire: no PVP combat, knights pass through freely
+  harvestBlockedForAll?: boolean; // Famine
+  harvestBlockedForPlayer?: string; // Harvest Ban target
+  doubleHarvest?: boolean; // Bountiful Harvest
+  noBoatMovement?: boolean; // Fog of War
+  noBoatTransport?: boolean; // Storm Season
+  boatMovementBonus?: number; // Favorable Winds
+  lockdownPlayer?: string; // Lockdown target: cannot move knights this round
+  dicePenaltyPlayer?: string; // Penalty target: rolls one fewer die this round (minimum 1)
+  traderRate1to1?: boolean; // Merchant Fair
+  buildCostReduction?: boolean; // Merchant Fair
+  dragonMightModifier?: number; // Dragon Sleeping (-2)
+  dragonCombatImpressionOnly?: boolean; // Dragon Sleeping: only combat impresses
+  dragonAbsent?: boolean; // Dragon Off Hunting
+}
 
 /**
  * Tagged log entry in the sequential game log
  */
 export interface GameLogEntry {
   round: number;
-  playerName: string;
+  phase: GamePhase; // Which round phase the entry belongs to
+  playerName?: string; // The acting player. Undefined for table-wide entries (fate phase, roll phase, game end).
   type: GameLogEntryType;
   content: string; // High-level description of what happened
 }

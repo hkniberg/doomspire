@@ -4,7 +4,7 @@ import { getCoastalTilesForOceanPosition } from "../engine/actions/moveCalculato
 import { Board } from "../lib/Board";
 import { BoardBuilder } from "../lib/BoardBuilder";
 import { GameSettings } from "../lib/GameSettings";
-import type { Boat, Champion, OceanPosition, Player, Position, Tile } from "../lib/types";
+import type { Boat, Champion, FateEffects, OceanPosition, Player, Position, Tile } from "../lib/types";
 
 export class GameState {
 
@@ -15,6 +15,8 @@ export class GameState {
   public currentRound: number;
   public gameEnded: boolean;
   public winner?: number;
+  public fateEffects: FateEffects = {}; // Round-scoped effects from the current fate card
+  public doubleFoodTaxNextRound?: boolean; // Set by the "Blessing of the Lonesome" adventure card
 
   constructor(
     board: Board,
@@ -113,7 +115,7 @@ export class GameState {
           ore: startingOre,
           gold: startingGold
         },
-        maxClaims: 10,
+        dragonImpressions: 0,
         champions: [champion],
         boats: [boat],
         buildings: [], // Initialize with no buildings
@@ -215,26 +217,18 @@ export class GameState {
   }
 
   /**
-   * Advances to the next player's turn
-   * When all players have had their turn in a round, advances the starting player token
+   * Reset all per-round state (champion interaction locks, dragon impression limits, special tile usage, fate effects).
+   * Called at the start of each round.
    */
-  public advanceToNextPlayer(): GameState {
-    const nextPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
-
-    // Check if completing this round (next player would be the current round's starting player)
-    const isRoundComplete = nextPlayerIndex === this.startPlayerIndex;
-
-    if (isRoundComplete) {
-      // Round is complete - advance the starting player token and start new round
-      this.startPlayerIndex = (this.startPlayerIndex + 1) % this.players.length;
-      this.currentPlayerIndex = this.startPlayerIndex;
-      this.currentRound = this.currentRound + 1;
-    } else {
-      // Continue with next player in current round
-      this.currentPlayerIndex = nextPlayerIndex;
+  public resetRoundState(): void {
+    this.fateEffects = {};
+    for (const player of this.players) {
+      player.impressedDragonThisRound = false;
+      player.specialTileUsesThisRound = {};
+      for (const champion of player.champions) {
+        champion.hasInteractedThisRound = false;
+      }
     }
-
-    return this;
   }
 
   public updateChampionPosition(playerName: string, championId: number, endPosition: Position): Tile {
@@ -288,6 +282,7 @@ export class GameState {
       currentRound: this.currentRound,
       gameEnded: this.gameEnded,
       winner: this.winner,
+      fateEffects: this.fateEffects,
     };
   }
 
@@ -328,42 +323,61 @@ export class GameState {
       currentRound: this.currentRound,
       gameEnded: this.gameEnded,
       winner: this.winner,
+      fateEffects: this.fateEffects,
     };
   }
 
   /**
-   * Get the combat support bonus from adjacent units (knights and warships) for a player at a given position
-   * This implements the combat support rules where your own units provide +2 might per supporting unit
+   * Whether a player has any support-capable units in range of a combat position:
+   * a champion within 1 tile (including diagonals), excluding the combat tile itself,
+   * or a warship in the adjacent ocean zone (for coastal tiles).
    */
-  public getCombatSupport(playerName: string, combatPosition: Position): number {
-    let supportCount = 0;
+  public hasSupportUnitsInRange(playerName: string, combatPosition: Position, excludeChampionId?: number): boolean {
+    const player = this.getPlayer(playerName);
+    if (!player) return false;
 
-    // Find all adjacent positions
-    const adjacentPositions = this.getAdjacentPositions(combatPosition);
-
-    // Check for supporting knights in adjacent tiles
-    for (const adjacentPos of adjacentPositions) {
-      const adjacentTile = this.getTile(adjacentPos);
-      if (adjacentTile) {
-        // Find champions of the same player in adjacent tiles
-        const supportingChampions = this.getChampionsAtPosition(playerName, adjacentPos);
-        supportCount += supportingChampions.length;
+    // Champions within 1 tile, including diagonals
+    for (const champion of player.champions) {
+      if (excludeChampionId !== undefined && champion.id === excludeChampionId) continue;
+      const rowDiff = Math.abs(champion.position.row - combatPosition.row);
+      const colDiff = Math.abs(champion.position.col - combatPosition.col);
+      const onCombatTile = rowDiff === 0 && colDiff === 0;
+      if (!onCombatTile && rowDiff <= 1 && colDiff <= 1) {
+        return true;
       }
     }
 
-    // Check for supporting warships in adjacent ocean zones
-    const player = this.getPlayer(playerName);
-    if (player) {
+    // Warships in adjacent ocean zone
+    if (this.isWarship(player)) {
       for (const boat of player.boats) {
-        if (this.isWarship(player) && this.isBoatAdjacentToPosition(boat.position, combatPosition)) {
-          supportCount += 1;
+        if (this.isBoatAdjacentToPosition(boat.position, combatPosition)) {
+          return true;
         }
       }
     }
 
-    // A given player can provide at most one support per battle,
-    // no matter how many knights or warships they have in range
-    return Math.min(supportCount, 1) * GameSettings.COMBAT_SUPPORT_BONUS;
+    return false;
+  }
+
+  /**
+   * Get the combat support bonus from a player's own units (knights and warships) at a given position.
+   * Support range is 1 tile including diagonals. A player can provide at most one support (+2) per battle.
+   */
+  public getCombatSupport(playerName: string, combatPosition: Position, excludeChampionId?: number): number {
+    return this.hasSupportUnitsInRange(playerName, combatPosition, excludeChampionId)
+      ? GameSettings.COMBAT_SUPPORT_BONUS
+      : 0;
+  }
+
+  /**
+   * Get the names of all other players (not in excludeNames) that have support-capable units
+   * in range of the combat position. These players may choose to support one of the combatants.
+   */
+  public getOtherPlayersWithSupportInRange(combatPosition: Position, excludeNames: string[]): string[] {
+    return this.players
+      .filter((p) => !excludeNames.includes(p.name))
+      .filter((p) => this.hasSupportUnitsInRange(p.name, combatPosition))
+      .map((p) => p.name);
   }
 
   /**
@@ -421,8 +435,9 @@ export class GameState {
   }
 
   /**
-   * Check if a claimed tile is protected from blockade or conquest
-   * A tile is protected if the owner has knights in the tile or adjacent tiles
+   * Check if a claimed tile is protected from blockade or conquest.
+   * A tile is protected if the owner has a knight in an adjacent tile (no diagonals).
+   * A knight carrying the Staff of Protection protects all neighbouring tiles, even diagonally.
    */
   public isClaimProtected(tile: Tile): boolean {
     // Only claimed tiles can be protected
@@ -435,28 +450,18 @@ export class GameState {
       return false;
     }
 
-    // Check for knight protection (in the tile itself)
-    const ownerChampionsInTile = tileOwner.champions.filter(champion =>
-      champion.position.row === tile.position.row && champion.position.col === tile.position.col
-    );
+    for (const champion of tileOwner.champions) {
+      const rowDiff = Math.abs(champion.position.row - tile.position.row);
+      const colDiff = Math.abs(champion.position.col - tile.position.col);
+      const isOrthogonallyAdjacent = rowDiff + colDiff === 1;
+      const isDiagonallyAdjacent = rowDiff === 1 && colDiff === 1;
 
-    if (ownerChampionsInTile.length > 0) {
-      return true;
-    }
+      if (isOrthogonallyAdjacent) {
+        return true;
+      }
 
-    // Check for knight protection (adjacent tiles)
-    const adjacentPositions = this.getAdjacentPositions(tile.position);
-
-    for (const adjacentPos of adjacentPositions) {
-      const adjacentTile = this.getTile(adjacentPos);
-      if (!adjacentTile) continue;
-
-      // Check if the tile owner has a knight in this adjacent position
-      const ownerChampionsAtPosition = tileOwner.champions.filter(champion =>
-        champion.position.row === adjacentPos.row && champion.position.col === adjacentPos.col
-      );
-
-      if (ownerChampionsAtPosition.length > 0) {
+      // Staff of Protection: protects all neighbouring tiles, even diagonally
+      if (isDiagonallyAdjacent && champion.items.some(item => item.treasureCard?.id === "staff-of-protection")) {
         return true;
       }
     }

@@ -1,5 +1,6 @@
 import { BuildAction } from "@/lib/actionTypes";
-import { Player } from "@/lib/types";
+import { Player, ResourceType } from "@/lib/types";
+import { GameState } from "@/game/GameState";
 import { GameSettings } from "@/lib/GameSettings";
 import { canAfford, deductCost } from "@/players/PlayerUtils";
 import { formatCost } from "@/lib/utils";
@@ -10,30 +11,50 @@ export interface BuildActionResult {
   resourcesSpent?: { food: number; wood: number; ore: number; gold: number };
 }
 
+type Cost = Record<ResourceType, number>;
+
+/**
+ * Get the effective cost of a build action, applying the Merchant Fair fate card if active
+ * (costs reduced by 1 of each resource type, minimum 1 each).
+ */
+export function getEffectiveBuildCost(baseCost: Cost, gameState?: GameState): Cost {
+  if (!gameState?.fateEffects.buildCostReduction) {
+    return baseCost;
+  }
+  const reduce = (value: number) => (value > 0 ? Math.max(1, value - 1) : 0);
+  return {
+    food: reduce(baseCost.food),
+    wood: reduce(baseCost.wood),
+    ore: reduce(baseCost.ore),
+    gold: reduce(baseCost.gold),
+  };
+}
+
 export function handleBuildAction(
   player: Player,
   action: BuildAction,
   logFn: (type: string, content: string) => void,
-  reasoning?: string
+  reasoning?: string,
+  gameState?: GameState
 ): BuildActionResult {
   const reasoningText = reasoning ? ` Reason: ${reasoning}.` : "";
 
   if (action === "blacksmith") {
-    return handleBlacksmithBuild(player, action, logFn, reasoningText);
+    return handleSimpleBuildingBuild(player, "blacksmith", getEffectiveBuildCost(GameSettings.BLACKSMITH_COST, gameState), logFn, reasoningText);
   } else if (action === "market") {
-    return handleMarketBuild(player, action, logFn, reasoningText);
+    return handleSimpleBuildingBuild(player, "market", getEffectiveBuildCost(GameSettings.MARKET_COST, gameState), logFn, reasoningText);
   } else if (action === "recruitChampion") {
-    return handleChampionRecruitment(player, action, logFn, reasoningText);
+    return handleChampionRecruitment(player, getEffectiveBuildCost(GameSettings.CHAMPION_COST, gameState), logFn, reasoningText);
   } else if (action === "buildBoat") {
-    return handleBoatBuild(player, action, logFn, reasoningText);
+    return handleBoatBuild(player, getEffectiveBuildCost(GameSettings.BOAT_COST, gameState), logFn, reasoningText);
   } else if (action === "chapel") {
-    return handleChapelBuild(player, action, logFn, reasoningText);
+    return handleChapelBuild(player, getEffectiveBuildCost(GameSettings.CHAPEL_COST, gameState), logFn, reasoningText);
   } else if (action === "upgradeChapelToMonastery") {
-    return handleMonasteryBuild(player, action, logFn, reasoningText);
+    return handleMonasteryBuild(player, getEffectiveBuildCost(GameSettings.MONASTERY_COST, gameState), logFn, reasoningText);
   } else if (action === "warshipUpgrade") {
-    return handleWarshipUpgrade(player, action, logFn, reasoningText);
+    return handleWarshipUpgrade(player, getEffectiveBuildCost(GameSettings.WARSHIP_UPGRADE_COST, gameState), logFn, reasoningText);
   } else if (action === "fletcher") {
-    return handleFletcherBuild(player, action, logFn, reasoningText);
+    return handleSimpleBuildingBuild(player, "fletcher", getEffectiveBuildCost(GameSettings.FLETCHER_COST, gameState), logFn, reasoningText);
   } else {
     return {
       actionSuccessful: false,
@@ -42,93 +63,46 @@ export function handleBuildAction(
   }
 }
 
-function handleBlacksmithBuild(
+/**
+ * Build a simple one-per-player building (blacksmith, market, fletcher)
+ */
+function handleSimpleBuildingBuild(
   player: Player,
-  action: BuildAction,
+  building: "blacksmith" | "market" | "fletcher",
+  cost: Cost,
   logFn: (type: string, content: string) => void,
   reasoningText: string
 ): BuildActionResult {
-  // Check if player can afford blacksmith
-  if (!canAfford(player, GameSettings.BLACKSMITH_COST)) {
-    logFn("system", `Cannot afford blacksmith - requires ${formatCost(GameSettings.BLACKSMITH_COST)}.${reasoningText}`);
+  if (!canAfford(player, cost)) {
+    logFn("system", `Cannot afford ${building} - requires ${formatCost(cost)}.${reasoningText}`);
     return {
       actionSuccessful: false,
       reason: "Insufficient resources"
     };
   }
 
-  // Check if player already has a blacksmith (max 1 per player)
-  const hasBlacksmith = player.buildings.includes("blacksmith");
-  if (hasBlacksmith) {
-    logFn("system", `Cannot build blacksmith - player already has one.${reasoningText}`);
+  if (player.buildings.includes(building)) {
+    logFn("system", `Cannot build ${building} - player already has one.${reasoningText}`);
     return {
       actionSuccessful: false,
-      reason: "Already has blacksmith"
+      reason: `Already has ${building}`
     };
   }
 
-  // Deduct resources
-  deductCost(player, GameSettings.BLACKSMITH_COST);
+  deductCost(player, cost);
+  player.buildings.push(building);
 
-  // Add blacksmith to player's buildings
-  player.buildings.push("blacksmith");
-
-  logFn(
-    "system",
-    `Built a blacksmith for ${formatCost(GameSettings.BLACKSMITH_COST)}.${reasoningText}`
-  );
+  logFn("system", `Built a ${building} for ${formatCost(cost)}.${reasoningText}`);
 
   return {
     actionSuccessful: true,
-    resourcesSpent: GameSettings.BLACKSMITH_COST
-  };
-}
-
-function handleMarketBuild(
-  player: Player,
-  action: BuildAction,
-  logFn: (type: string, content: string) => void,
-  reasoningText: string
-): BuildActionResult {
-  // Check if player can afford market
-  if (!canAfford(player, GameSettings.MARKET_COST)) {
-    logFn("system", `Cannot afford market - requires ${formatCost(GameSettings.MARKET_COST)}.${reasoningText}`);
-    return {
-      actionSuccessful: false,
-      reason: "Insufficient resources"
-    };
-  }
-
-  // Check if player already has a market (max 1 per player)
-  const hasMarket = player.buildings.includes("market");
-  if (hasMarket) {
-    logFn("system", `Cannot build market - player already has one.${reasoningText}`);
-    return {
-      actionSuccessful: false,
-      reason: "Already has market"
-    };
-  }
-
-  // Deduct resources
-  deductCost(player, GameSettings.MARKET_COST);
-
-  // Add market to player's buildings
-  player.buildings.push("market");
-
-  logFn(
-    "system",
-    `Built a market for ${formatCost(GameSettings.MARKET_COST)}.${reasoningText}`
-  );
-
-  return {
-    actionSuccessful: true,
-    resourcesSpent: GameSettings.MARKET_COST
+    resourcesSpent: cost
   };
 }
 
 function handleChampionRecruitment(
   player: Player,
-  action: BuildAction,
+  cost: Cost,
   logFn: (type: string, content: string) => void,
   reasoningText: string
 ): BuildActionResult {
@@ -143,12 +117,11 @@ function handleChampionRecruitment(
     };
   }
 
-  // FIXED: Use fixed cost as per game rules (always 3 Food, 3 Gold, 1 Ore)
-  const championId = currentChampionCount + 2; // Next champion ID
+  const championId = currentChampionCount + 1; // Next champion ID (starting champion has id 1)
 
   // Check if player can afford the champion
-  if (!canAfford(player, GameSettings.CHAMPION_COST)) {
-    logFn("system", `Cannot afford champion ${championId} - requires ${formatCost(GameSettings.CHAMPION_COST)}.${reasoningText}`);
+  if (!canAfford(player, cost)) {
+    logFn("system", `Cannot afford champion ${championId} - requires ${formatCost(cost)}.${reasoningText}`);
     return {
       actionSuccessful: false,
       reason: "Insufficient resources"
@@ -156,7 +129,7 @@ function handleChampionRecruitment(
   }
 
   // Deduct resources
-  deductCost(player, GameSettings.CHAMPION_COST);
+  deductCost(player, cost);
 
   // Add new champion to player's home tile
   const newChampion = {
@@ -171,24 +144,24 @@ function handleChampionRecruitment(
 
   logFn(
     "system",
-    `Recruited champion ${championId} for ${formatCost(GameSettings.CHAMPION_COST)}.${reasoningText}`
+    `Recruited champion ${championId} for ${formatCost(cost)}.${reasoningText}`
   );
 
   return {
     actionSuccessful: true,
-    resourcesSpent: GameSettings.CHAMPION_COST
+    resourcesSpent: cost
   };
 }
 
 function handleBoatBuild(
   player: Player,
-  action: BuildAction,
+  cost: Cost,
   logFn: (type: string, content: string) => void,
   reasoningText: string
 ): BuildActionResult {
   // Check if player can afford boat
-  if (!canAfford(player, GameSettings.BOAT_COST)) {
-    logFn("system", `Cannot afford boat - requires ${formatCost(GameSettings.BOAT_COST)}.${reasoningText}`);
+  if (!canAfford(player, cost)) {
+    logFn("system", `Cannot afford boat - requires ${formatCost(cost)}.${reasoningText}`);
     return {
       actionSuccessful: false,
       reason: "Insufficient resources"
@@ -206,38 +179,38 @@ function handleBoatBuild(
   }
 
   // Deduct resources
-  deductCost(player, GameSettings.BOAT_COST);
+  deductCost(player, cost);
 
   // Add new boat to player's boats array
   const newBoatId = currentBoatCount + 1;
   const newBoat = {
     id: newBoatId,
     playerName: player.name,
-    position: player.boats[0].position, // Start in same position as first boat
+    position: player.boats.length > 0 ? player.boats[0].position : ("nw" as const), // Start in same position as first boat
   };
 
   player.boats.push(newBoat);
 
   logFn(
     "system",
-    `Built boat ${newBoatId} for ${formatCost(GameSettings.BOAT_COST)}.${reasoningText}`
+    `Built boat ${newBoatId} for ${formatCost(cost)}.${reasoningText}`
   );
 
   return {
     actionSuccessful: true,
-    resourcesSpent: GameSettings.BOAT_COST
+    resourcesSpent: cost
   };
 }
 
 function handleChapelBuild(
   player: Player,
-  action: BuildAction,
+  cost: Cost,
   logFn: (type: string, content: string) => void,
   reasoningText: string
 ): BuildActionResult {
   // Check if player can afford chapel
-  if (!canAfford(player, GameSettings.CHAPEL_COST)) {
-    logFn("system", `Cannot afford chapel - requires ${formatCost(GameSettings.CHAPEL_COST)}.${reasoningText}`);
+  if (!canAfford(player, cost)) {
+    logFn("system", `Cannot afford chapel - requires ${formatCost(cost)}.${reasoningText}`);
     return {
       actionSuccessful: false,
       reason: "Insufficient resources"
@@ -256,7 +229,7 @@ function handleChapelBuild(
   }
 
   // Deduct resources
-  deductCost(player, GameSettings.CHAPEL_COST);
+  deductCost(player, cost);
 
   // Add chapel to player's buildings
   player.buildings.push("chapel");
@@ -266,24 +239,24 @@ function handleChapelBuild(
 
   logFn(
     "system",
-    `Built a chapel for ${formatCost(GameSettings.CHAPEL_COST)}. Gained ${GameSettings.CHAPEL_FAME_REWARD} Fame.${reasoningText}`
+    `Built a chapel for ${formatCost(cost)}. Gained ${GameSettings.CHAPEL_FAME_REWARD} Fame.${reasoningText}`
   );
 
   return {
     actionSuccessful: true,
-    resourcesSpent: GameSettings.CHAPEL_COST
+    resourcesSpent: cost
   };
 }
 
 function handleMonasteryBuild(
   player: Player,
-  action: BuildAction,
+  cost: Cost,
   logFn: (type: string, content: string) => void,
   reasoningText: string
 ): BuildActionResult {
   // Check if player can afford monastery
-  if (!canAfford(player, GameSettings.MONASTERY_COST)) {
-    logFn("system", `Cannot afford monastery - requires ${formatCost(GameSettings.MONASTERY_COST)}.${reasoningText}`);
+  if (!canAfford(player, cost)) {
+    logFn("system", `Cannot afford monastery - requires ${formatCost(cost)}.${reasoningText}`);
     return {
       actionSuccessful: false,
       reason: "Insufficient resources"
@@ -311,7 +284,7 @@ function handleMonasteryBuild(
   }
 
   // Deduct resources
-  deductCost(player, GameSettings.MONASTERY_COST);
+  deductCost(player, cost);
 
   // Remove chapel and add monastery (monastery replaces chapel)
   const chapelIndex = player.buildings.indexOf("chapel");
@@ -325,24 +298,24 @@ function handleMonasteryBuild(
 
   logFn(
     "system",
-    `Built a monastery for ${formatCost(GameSettings.MONASTERY_COST)}. Upgraded chapel to monastery. Gained ${GameSettings.MONASTERY_FAME_REWARD} Fame.${reasoningText}`
+    `Built a monastery for ${formatCost(cost)}. Upgraded chapel to monastery. Gained ${GameSettings.MONASTERY_FAME_REWARD} Fame.${reasoningText}`
   );
 
   return {
     actionSuccessful: true,
-    resourcesSpent: GameSettings.MONASTERY_COST
+    resourcesSpent: cost
   };
 }
 
 function handleWarshipUpgrade(
   player: Player,
-  action: BuildAction,
+  cost: Cost,
   logFn: (type: string, content: string) => void,
   reasoningText: string
 ): BuildActionResult {
   // Check if player can afford warship upgrade
-  if (!canAfford(player, GameSettings.WARSHIP_UPGRADE_COST)) {
-    logFn("system", `Cannot afford warship upgrade - requires ${formatCost(GameSettings.WARSHIP_UPGRADE_COST)}.${reasoningText}`);
+  if (!canAfford(player, cost)) {
+    logFn("system", `Cannot afford warship upgrade - requires ${formatCost(cost)}.${reasoningText}`);
     return {
       actionSuccessful: false,
       reason: "Insufficient resources"
@@ -360,60 +333,18 @@ function handleWarshipUpgrade(
   }
 
   // Deduct resources
-  deductCost(player, GameSettings.WARSHIP_UPGRADE_COST);
+  deductCost(player, cost);
 
   // Add warship upgrade to player's buildings
   player.buildings.push("warshipUpgrade");
 
   logFn(
     "system",
-    `Built warship upgrade for ${formatCost(GameSettings.WARSHIP_UPGRADE_COST)}. All boats are now warships.${reasoningText}`
+    `Built warship upgrade for ${formatCost(cost)}. All boats are now warships.${reasoningText}`
   );
 
   return {
     actionSuccessful: true,
-    resourcesSpent: GameSettings.WARSHIP_UPGRADE_COST
+    resourcesSpent: cost
   };
 }
-
-function handleFletcherBuild(
-  player: Player,
-  action: BuildAction,
-  logFn: (type: string, content: string) => void,
-  reasoningText: string
-): BuildActionResult {
-  // Check if player can afford fletcher
-  if (!canAfford(player, GameSettings.FLETCHER_COST)) {
-    logFn("system", `Cannot afford fletcher - requires ${formatCost(GameSettings.FLETCHER_COST)}.${reasoningText}`);
-    return {
-      actionSuccessful: false,
-      reason: "Insufficient resources"
-    };
-  }
-
-  // Check if player already has a fletcher (max 1 per player)
-  const hasFletcher = player.buildings.includes("fletcher");
-  if (hasFletcher) {
-    logFn("system", `Cannot build fletcher - player already has one.${reasoningText}`);
-    return {
-      actionSuccessful: false,
-      reason: "Already has fletcher"
-    };
-  }
-
-  // Deduct resources
-  deductCost(player, GameSettings.FLETCHER_COST);
-
-  // Add fletcher to player's buildings
-  player.buildings.push("fletcher");
-
-  logFn(
-    "system",
-    `Built a fletcher for ${formatCost(GameSettings.FLETCHER_COST)}.${reasoningText}`
-  );
-
-  return {
-    actionSuccessful: true,
-    resourcesSpent: GameSettings.FLETCHER_COST
-  };
-} 
