@@ -56,7 +56,7 @@ export function stringifyTileForGameLog(tile: Tile, gameState: GameState, ignore
         sentences.push(resourceDescription);
         break;
       case "adventure":
-        sentences.push("This is an adventure tile");
+        sentences.push("This is an adventure tile (explored)");
         if (tile.adventureTokens === 0) {
           sentences.push("No adventure cards left");
         }
@@ -79,10 +79,10 @@ export function stringifyTileForGameLog(tile: Tile, gameState: GameState, ignore
         sentences.push("This is an oasis");
         break;
       case "wolfDen":
-        sentences.push("This is a wolf den");
+        sentences.push(tile.monster ? "This is a wolf den" : "This is an empty wolf den (wolf slain)");
         break;
       case "bearCave":
-        sentences.push("This is a bear cave");
+        sentences.push(tile.monster ? "This is a bear cave" : "This is an empty bear cave (bear slain)");
         break;
       case "empty":
         sentences.push("This is an empty tile");
@@ -295,7 +295,7 @@ function formatTileForBoard(tile: Tile, gameState: GameState): string {
         }
         break;
       case "adventure":
-        lines.push(`- Tier ${tile.tier} adventure tile`);
+        lines.push(`- Tier ${tile.tier} adventure tile (explored)`);
         if (tile.adventureTokens === 0) {
           lines.push(`- No adventure cards left`);
         }
@@ -322,15 +322,19 @@ function formatTileForBoard(tile: Tile, gameState: GameState): string {
         lines.push(`- Tier ${tile.tier} oasis`);
         break;
       case "wolfDen":
-        lines.push("- Wolf Den");
         if (tile.monster) {
+          lines.push("- Wolf Den");
           lines.push(`- Monster: ${formatMonsterInfo(tile.monster)}`);
+        } else {
+          lines.push("- Wolf Den (empty, wolf slain)");
         }
         break;
       case "bearCave":
-        lines.push("- Bear Cave");
         if (tile.monster) {
+          lines.push("- Bear Cave");
           lines.push(`- Monster: ${formatMonsterInfo(tile.monster)}`);
+        } else {
+          lines.push("- Bear Cave (empty, bear slain)");
         }
         break;
       default:

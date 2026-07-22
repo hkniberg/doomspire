@@ -168,7 +168,7 @@ export const FATE_CARDS: FateCard[] = [
     type: "event",
     flavorText: "The dragon circles the island, casting fear.",
     effect:
-      "All knights **within 2 tiles of Doomspire** (Manhattan distance) must flee to their home tile. Knights already at Doomspire are unaffected.",
+      "All knights **in the hills or mountains** must flee to their home tile. Knights already at Doomspire are unaffected.",
   },
   {
     id: "oasis-bloom",

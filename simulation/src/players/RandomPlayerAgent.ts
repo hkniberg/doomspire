@@ -101,7 +101,7 @@ export class RandomPlayerAgent implements PlayerAgent {
     const chosenAction = randomChoice(actions);
 
     if (thinkingLogger) {
-      thinkingLogger(`Will do ${chosenAction.actionType} with die ${dieValue}`);
+      thinkingLogger(`${this.name}: Will do ${chosenAction.actionType} with die ${dieValue}`);
     }
 
     return chosenAction;
@@ -117,7 +117,7 @@ export class RandomPlayerAgent implements PlayerAgent {
     const randomOption = randomChoice(decisionContext.options);
 
     if (thinkingLogger) {
-      thinkingLogger(`Random player ${this.name} randomly chose: ${randomOption.id}`);
+      thinkingLogger(`${this.name}: randomly chose: ${randomOption.id}`);
     }
 
     return { choice: randomOption.id };
@@ -132,7 +132,7 @@ export class RandomPlayerAgent implements PlayerAgent {
     const decision = makeRandomTraderDecision(traderContext);
 
     if (thinkingLogger) {
-      thinkingLogger(`Random player ${this.name} trader decision: ${decision.actions.length > 0 ? 'buying spear' : 'buying nothing'}`);
+      thinkingLogger(`${this.name}: trader decision: ${decision.actions.length > 0 ? 'buying spear' : 'buying nothing'}`);
     }
 
     return decision;
@@ -154,7 +154,7 @@ export class RandomPlayerAgent implements PlayerAgent {
 
     if (thinkingLogger) {
       const hasUsage = result.buildingUsageDecision && Object.keys(result.buildingUsageDecision).length > 0;
-      thinkingLogger(`Random player ${this.name} harvest decision: ${result.harvestTiles?.length || 0} tile(s), ${hasUsage ? 'using buildings' : 'no building usage'}, ${result.buildAction ? `building ${result.buildAction}` : 'no build action'}`);
+      thinkingLogger(`${this.name}: harvest decision: ${result.harvestTiles?.length || 0} tile(s), ${hasUsage ? 'using buildings' : 'no building usage'}, ${result.buildAction ? `building ${result.buildAction}` : 'no build action'}`);
     }
 
     return result;

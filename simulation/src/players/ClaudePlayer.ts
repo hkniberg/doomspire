@@ -6,14 +6,14 @@ import { formatBuildingInfo, stringifyGameState, stringifyPlayer } from "@/game/
 import { DiceAction, HarvestDecision } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
-import { Decision, DecisionContext, GameLogEntry, Player, PlayerType, TurnContext } from "@/lib/types";
+import { Decision, DecisionContext, GameLogEntry, Player, PlayerType, ResourceType, TurnContext } from "@/lib/types";
 import { GameState } from "../game/GameState";
 import { decisionSchema, diceActionSchema, harvestDecisionSchema, traderDecisionSchema } from "../lib/claudeSchemas";
 import { GameSettings } from "../lib/GameSettings";
 import { TemplateProcessor, TemplateVariables } from "../lib/templateProcessor";
 import { Claude } from "../llm/claude";
 import { PlayerAgent } from "./PlayerAgent";
-import { getUsableBuildings, canAfford } from "./PlayerUtils";
+import { getUsableBuildings, prefixThinkingWithPlayerName } from "./PlayerUtils";
 
 export class ClaudePlayerAgent implements PlayerAgent {
     private name: string;
@@ -46,7 +46,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const userMessage = await this.prepareAssessmentMessage(gameState, gameLog, diceValues, turnNumber, traderItems);
 
         // Get text response for strategic assessment
-        const strategicAssessment = await this.claude.useClaude(userMessage, undefined, 3000, 6000, thinkingLogger);
+        const strategicAssessment = await this.claude.useClaude(userMessage, undefined, 3000, 6000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         return strategicAssessment.trim() || undefined;
     }
@@ -61,7 +61,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const userMessage = await this.prepareDiceActionMessage(gameState, gameLog, turnContext);
 
         // Get LLM response with structured JSON
-        const response = await this.claude.useClaude(userMessage, diceActionSchema, 1024, 3000, thinkingLogger);
+        const response = await this.claude.useClaude(userMessage, diceActionSchema, 1024, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         const action = response as DiceAction;
 
@@ -108,7 +108,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         };
 
         // Get structured JSON response for decision
-        const response = await this.claude.useClaude(userMessage, schema, 0, 2000, thinkingLogger);
+        const response = await this.claude.useClaude(userMessage, schema, 0, 2000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         // Validate that the chosen option is valid (should be guaranteed by the enum)
         if (!validChoices.includes(response.choice)) {
@@ -128,7 +128,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const userMessage = await this.prepareTraderDecisionMessage(gameState, gameLog, traderContext);
 
         // Get structured JSON response for trader decision
-        const response = await this.claude.useClaude(userMessage, traderDecisionSchema, 1024, 3000, thinkingLogger);
+        const response = await this.claude.useClaude(userMessage, traderDecisionSchema, 1024, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         return response as TraderDecision;
     }
@@ -147,17 +147,23 @@ export class ClaudePlayerAgent implements PlayerAgent {
 
         // Check for usable buildings and available build actions early
         const usableBuildings = getUsableBuildings(player);
-        const availableBuildActions = this.getAvailableBuildActions(player);
+        const availableBuildActions = this.getAvailableBuildActions(player, player.resources);
+
+        // The build action is paid after the harvest is collected, so also list build actions
+        // that could become affordable with this round's harvest yield.
+        const potentialResources = this.getPotentialResourcesAfterHarvest(gameState, playerName, savedDiceValues);
+        const potentialBuildActions = this.getAvailableBuildActions(player, potentialResources)
+            .filter((action) => !availableBuildActions.includes(action));
 
         if (savedDiceValues.length === 0 && usableBuildings.length === 0 && availableBuildActions.length === 0) {
             // Nothing to harvest, no buildings to use, and no build actions available
             return {};
         }
 
-        const userMessage = await this.prepareHarvestDecisionMessage(gameState, gameLog, playerName, savedDiceValues, usableBuildings, availableBuildActions);
+        const userMessage = await this.prepareHarvestDecisionMessage(gameState, gameLog, playerName, savedDiceValues, usableBuildings, availableBuildActions, potentialBuildActions);
 
         // Get structured JSON response for the harvest phase decision
-        const response = await this.claude.useClaude(userMessage, harvestDecisionSchema, 1024, 3000, thinkingLogger);
+        const response = await this.claude.useClaude(userMessage, harvestDecisionSchema, 1024, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         return response as HarvestDecision;
     }
@@ -323,6 +329,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         savedDiceValues: number[],
         usableBuildings: string[],
         availableBuildActions: string[],
+        potentialBuildActions: string[],
     ): Promise<string> {
         const player = gameState.getPlayer(playerName);
         if (!player) {
@@ -340,9 +347,13 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const availableBuildings = this.buildAvailableBuildingsSummary(player, usableBuildings);
 
         // Build available build actions summary
-        const buildActionsText = availableBuildActions.length > 0
+        const currentBuildActionsText = availableBuildActions.length > 0
             ? `You can currently afford these build actions: ${availableBuildActions.join(", ")}.`
-            : "You cannot afford any build actions yet.";
+            : "You cannot afford any build actions with your current resources.";
+        const potentialBuildActionsText = potentialBuildActions.length > 0
+            ? ` After harvesting, these may also become affordable: ${potentialBuildActions.join(", ")}. The build action is paid after your harvest is collected - make sure your chosen harvest tiles actually cover the cost.`
+            : "";
+        const buildActionsText = currentBuildActionsText + potentialBuildActionsText;
 
         const variables: TemplateVariables = {
             playerName: player.name,
@@ -419,61 +430,98 @@ export class ClaudePlayerAgent implements PlayerAgent {
         return buildingSummaries.join("\n");
     }
 
-    private getAvailableBuildActions(player: Player): string[] {
+    /**
+     * List the build actions the player could perform with the given resource pool.
+     * The pool is a parameter (rather than always player.resources) because the build
+     * action is paid after the harvest is collected, so we also want to check
+     * affordability against the potential post-harvest resources.
+     */
+    private getAvailableBuildActions(player: Player, resources: Record<ResourceType, number>): string[] {
+        const affords = (cost: Record<ResourceType, number>): boolean =>
+            resources.food >= cost.food && resources.wood >= cost.wood && resources.ore >= cost.ore && resources.gold >= cost.gold;
+
         const availableActions: string[] = [];
-        const { resources } = player;
 
         // Check Blacksmith (2 Food + 2 Ore, max 1 per player)
         const hasBlacksmith = player.buildings.includes("blacksmith");
-        if (!hasBlacksmith && canAfford(player, GameSettings.BLACKSMITH_COST)) {
+        if (!hasBlacksmith && affords(GameSettings.BLACKSMITH_COST)) {
             availableActions.push("blacksmith");
         }
 
         // Check Market (2 Food + 2 Wood, max 1 per player)
         const hasMarket = player.buildings.includes("market");
-        if (!hasMarket && canAfford(player, GameSettings.MARKET_COST)) {
+        if (!hasMarket && affords(GameSettings.MARKET_COST)) {
             availableActions.push("market");
         }
 
         // Check Fletcher (1 Wood + 1 Food + 1 Gold + 1 Ore, max 1 per player)
         const hasFletcher = player.buildings.includes("fletcher");
-        if (!hasFletcher && canAfford(player, GameSettings.FLETCHER_COST)) {
+        if (!hasFletcher && affords(GameSettings.FLETCHER_COST)) {
             availableActions.push("fletcher");
         }
 
         // Check Chapel (6 Wood + 2 Gold, only once per player)
         const hasChapel = player.buildings.includes("chapel");
         const hasMonastery = player.buildings.includes("monastery");
-        if (!hasChapel && !hasMonastery && canAfford(player, GameSettings.CHAPEL_COST)) {
+        if (!hasChapel && !hasMonastery && affords(GameSettings.CHAPEL_COST)) {
             availableActions.push("chapel");
         }
 
         // Check Monastery upgrade (8 Wood + 3 Gold + 1 Ore, requires chapel)
-        if (hasChapel && !hasMonastery && canAfford(player, GameSettings.MONASTERY_COST)) {
+        if (hasChapel && !hasMonastery && affords(GameSettings.MONASTERY_COST)) {
             availableActions.push("upgradeChapelToMonastery");
         }
 
         // Check Champion recruitment (max 3 total)
         const currentChampionCount = player.champions.length;
         if (currentChampionCount < GameSettings.MAX_CHAMPIONS_PER_PLAYER) {
-            if (canAfford(player, GameSettings.CHAMPION_COST)) {
+            if (affords(GameSettings.CHAMPION_COST)) {
                 availableActions.push("recruitChampion");
             }
         }
 
         // Check Boat building (max 2 boats total)
         const currentBoatCount = player.boats.length;
-        if (currentBoatCount < GameSettings.MAX_BOATS_PER_PLAYER && canAfford(player, GameSettings.BOAT_COST)) {
+        if (currentBoatCount < GameSettings.MAX_BOATS_PER_PLAYER && affords(GameSettings.BOAT_COST)) {
             availableActions.push("buildBoat");
         }
 
         // Check Warship upgrade (2 Wood + 1 Ore + 1 Gold, max 1 per player)
         const hasWarshipUpgrade = player.buildings.includes("warshipUpgrade");
-        if (!hasWarshipUpgrade && canAfford(player, GameSettings.WARSHIP_UPGRADE_COST)) {
+        if (!hasWarshipUpgrade && affords(GameSettings.WARSHIP_UPGRADE_COST)) {
             availableActions.push("warshipUpgrade");
         }
 
         return availableActions;
+    }
+
+    /**
+     * The player's resources plus the total yield of all eligible harvest tiles this round.
+     * An optimistic upper bound: if the player has fewer saved dice than eligible tiles,
+     * not all of them can actually be harvested. The prompt warns the AI about this.
+     */
+    private getPotentialResourcesAfterHarvest(
+        gameState: GameState,
+        playerName: string,
+        savedDiceValues: number[],
+    ): Record<ResourceType, number> {
+        const player = gameState.getPlayer(playerName)!;
+        const potential: Record<ResourceType, number> = { ...player.resources };
+
+        if (savedDiceValues.length === 0) {
+            return potential;
+        }
+
+        // Bountiful Harvest fate card doubles all harvest yields
+        const multiplier = gameState.fateEffects.doubleHarvest ? 2 : 1;
+
+        for (const tile of getEligibleHarvestTiles(gameState, playerName)) {
+            for (const [resource, amount] of Object.entries(tile.resources || {})) {
+                potential[resource as ResourceType] += (amount || 0) * multiplier;
+            }
+        }
+
+        return potential;
     }
 
     /**

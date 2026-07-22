@@ -17,7 +17,8 @@ const PHASE_LABELS: Record<GamePhase, string> = {
 };
 
 // A consecutive run of log entries with the same phase and player attribution.
-// Table-wide entries (fate phase, roll phase) have no playerName.
+// Table-wide entries (fate phase, roll phase) have no playerName, except fate-phase
+// thinking entries, which are attributed to the player doing the thinking.
 interface LogBlock {
   phase: GamePhase;
   playerName?: string;

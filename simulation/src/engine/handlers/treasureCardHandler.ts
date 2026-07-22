@@ -1,6 +1,7 @@
 import { getTreasureCardById } from "@/content/treasureCards";
 import { GameState } from "@/game/GameState";
 import { Decision, DecisionContext, GameLogEntry, Monster, Player, Tile, TileTier } from "@/lib/types";
+import { stripCardFormatting } from "@/lib/utils";
 import { PlayerAgent } from "@/players/PlayerAgent";
 import { canChampionCarryMoreItems, createDropItemDecision, getItemSlotSize, handleDropItemDecision } from "@/players/PlayerUtils";
 import { resolveImmediateCombat } from "./combatHandler";
@@ -42,7 +43,7 @@ export async function handleTreasureCard(
     };
   }
 
-  logFn("event", `Champion${championId} found treasure: ${treasureCard.name}!`);
+  logFn("event", `Champion${championId} found treasure: ${treasureCard.name} - ${stripCardFormatting(treasureCard.description)}`);
 
   // Handle specific treasure cards
   switch (cardId) {

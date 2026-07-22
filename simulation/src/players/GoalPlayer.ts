@@ -8,6 +8,7 @@ import { GameSettings } from "@/lib/GameSettings";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
 import { Decision, DecisionContext, GameLogEntry, PlayerType, TurnContext } from "@/lib/types";
 import { PlayerAgent } from "./PlayerAgent";
+import { prefixThinkingWithPlayerName } from "./PlayerUtils";
 import { Goal } from "./goals/Goal";
 import { ObtainBlacksmith } from "./goals/ObtainBlacksmith";
 import { BuildMight } from "./goals/BuildMight";
@@ -65,7 +66,7 @@ export class GoalPlayer implements PlayerAgent {
         diceValues,
         turnNumber,
         traderItems,
-        thinkingLogger
+        prefixThinkingWithPlayerName(this.name, thinkingLogger)
       );
     }
     return undefined;
@@ -78,14 +79,15 @@ export class GoalPlayer implements PlayerAgent {
     thinkingLogger?: (content: string) => void,
   ): Promise<DiceAction> {
     const currentGoal = this.selectCurrentGoal(gameState);
+    const namedThinkingLogger = prefixThinkingWithPlayerName(this.name, thinkingLogger);
 
-    if (thinkingLogger) {
+    if (namedThinkingLogger) {
       const player = gameState.getCurrentPlayer();
       const hasBlacksmith = player.buildings.includes("blacksmith");
-      thinkingLogger(`GoalPlayer: Using ${hasBlacksmith ? 'BuildMight' : 'ObtainBlacksmith'} goal`);
+      namedThinkingLogger(`GoalPlayer: Using ${hasBlacksmith ? 'BuildMight' : 'ObtainBlacksmith'} goal`);
     }
 
-    return await currentGoal.decideDiceAction(gameState, gameLog, turnContext, thinkingLogger);
+    return await currentGoal.decideDiceAction(gameState, gameLog, turnContext, namedThinkingLogger);
   }
 
   async makeDecision(
@@ -95,7 +97,7 @@ export class GoalPlayer implements PlayerAgent {
     thinkingLogger?: (content: string) => void,
   ): Promise<Decision> {
     const currentGoal = this.selectCurrentGoal(gameState);
-    return await currentGoal.makeDecision(gameState, gameLog, decisionContext, thinkingLogger);
+    return await currentGoal.makeDecision(gameState, gameLog, decisionContext, prefixThinkingWithPlayerName(this.name, thinkingLogger));
   }
 
   async makeTraderDecision(
@@ -105,7 +107,7 @@ export class GoalPlayer implements PlayerAgent {
     thinkingLogger?: (content: string) => void,
   ): Promise<TraderDecision> {
     const currentGoal = this.selectCurrentGoal(gameState);
-    return await currentGoal.makeTraderDecision(gameState, gameLog, traderContext, thinkingLogger);
+    return await currentGoal.makeTraderDecision(gameState, gameLog, traderContext, prefixThinkingWithPlayerName(this.name, thinkingLogger));
   }
 
   async makeHarvestDecision(
@@ -116,6 +118,6 @@ export class GoalPlayer implements PlayerAgent {
     thinkingLogger?: (content: string) => void,
   ): Promise<HarvestDecision> {
     const currentGoal = this.selectCurrentGoal(gameState, playerName);
-    return await currentGoal.makeHarvestDecision(gameState, gameLog, playerName, savedDiceValues, thinkingLogger);
+    return await currentGoal.makeHarvestDecision(gameState, gameLog, playerName, savedDiceValues, prefixThinkingWithPlayerName(this.name, thinkingLogger));
   }
 }

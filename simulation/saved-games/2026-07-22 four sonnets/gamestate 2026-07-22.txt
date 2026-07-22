@@ -1,0 +1,344 @@
+# Game session
+- Current round: 19
+- Current player: Bob
+- Fate card this round: Storm Season - All boats are pushed: move each boat 1 ocean zone clockwise. Boats cannot transport knights this round.
+
+# Players
+
+## Alice
+- Might: 7
+- Fame: 10
+- Dragon impressions: 0/2
+- Home: (0,0)
+- Resource stockpile: 1 wood, 1 ore
+- champion1 at (0,2) (has interacted this round, cannot use more action dice)
+  - Has The second ring (the-second-ring) - Gives `+2 fame`. Any *knight* with both the *one* and the *second* ring may **impress the dragon** as if they had reached one of the four win-conditions. If you also posess *the mysterious ring* while doing so, **the game immediately ends** as you absorb the dragons essence and take its place as the new ruler.
+- champion2 at (3,0)
+- champion3 at (3,2)
+  - Follower: Priestess (priestess)
+- boat1 at (sw)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+  - chapel (gave 3 fame when built)
+  - blacksmith (buy 1 might for 1 gold + 3 ore, once per harvest phase)
+  - fletcher (buy 1 might for 3 wood + 1 ore, once per harvest phase)
+- claims (9 tiles):
+  - Tile (0,0) providing 1 food, 1 wood
+  - Tile (0,2) providing 1 wood
+  - Tile (1,0) providing 1 ore
+  - Tile (1,2) (starred) providing 2 food (protected)
+  - Tile (2,0) providing 1 ore (protected)
+  - Tile (2,1) providing 1 food
+  - Tile (3,1) providing 1 gold (protected)
+  - Tile (4,0) (starred) providing 2 ore (protected)
+  - Tile (5,2) (starred) providing 2 wood
+
+## Bob
+- Might: 10
+- Fame: 0
+- Dragon impressions: 2/2
+- Home: (0,7)
+- Resource stockpile: 1 food, 1 wood, 1 ore
+- champion1 at (3,3)
+  - Has Runed Dagger (runed-dagger) - A mystical blade from the wild druid. Gain +1 might.
+- champion2 at (2,3)
+- champion3 at (0,7)
+- boat1 at (nw)
+- boat2 at (nw)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+  - blacksmith (buy 1 might for 1 gold + 3 ore, once per harvest phase)
+  - fletcher (buy 1 might for 3 wood + 1 ore, once per harvest phase)
+- claims (3 tiles):
+  - Tile (0,7) providing 1 food, 1 wood
+  - Tile (2,3) (starred) providing 1 wood, 1 ore (protected)
+  - Tile (3,2) (starred) providing 2 food (protected)
+
+## Charlie
+- Might: 0
+- Fame: 24
+- Dragon impressions: 0/2
+- Home: (7,0)
+- Resource stockpile: 1 food, 2 wood, 1 ore
+- champion1 at (4,1)
+  - Has The Hedgehog (the-hedgehog) - When battling another player, if their **combat total** is higher than yours (dice, might, support, and items all count), you have `+1 might` for that fight.
+- champion2 at (5,1)
+- boat1 at (se)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+  - monastery (gave 5 fame when built)
+- claims (4 tiles):
+  - Tile (5,1) providing 1 ore (protected)
+  - Tile (6,0) providing 1 wood
+  - Tile (7,0) providing 1 food, 1 wood
+  - Tile (7,2) (starred) providing 1 food, 1 ore
+
+## Diana
+- Might: 0
+- Fame: 0
+- Dragon impressions: 0/2
+- Home: (7,7)
+- Resource stockpile: 1 gold
+- champion1 at (1,4) (has interacted this round, cannot use more action dice)
+- champion2 at (6,5)
+- champion3 at (7,7)
+- boat1 at (ne)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+- claims (9 tiles):
+  - Tile (0,6) providing 1 food
+  - Tile (1,4) providing 1 wood
+  - Tile (1,6) providing 1 food
+  - Tile (2,6) providing 1 gold
+  - Tile (4,7) providing 1 wood
+  - Tile (5,7) providing 1 ore
+  - Tile (6,5) providing 1 food
+  - Tile (7,6) providing 1 food (protected)
+  - Tile (7,7) providing 1 food, 1 wood
+
+# Board
+
+Tile (0,0)
+- Home tile for Alice (can ONLY be entered by Alice's champions)
+
+Tile (0,1)
+- Tier 1 adventure tile (explored)
+- No adventure cards left
+
+Tile (0,2)
+- Resource tile providing 1 wood
+- Claimed by Alice
+- Alice champion1 is here
+
+Tile (0,3)
+- Tier 1 adventure tile (explored)
+
+Tile (0,4)
+- Temple (no combat). Sacrifice 2 fame to gain 1 might (once per round)
+
+Tile (0,5)
+- Mercenary camp (no combat). Buy 1 might for 3 gold (once per round)
+
+Tile (0,6)
+- Resource tile providing 1 food
+- Claimed by Diana
+
+Tile (0,7)
+- Home tile for Bob (can ONLY be entered by Bob's champions)
+- Bob champion3 is here
+
+Tile (1,0)
+- Resource tile providing 1 ore
+- Claimed by Alice
+
+Tile (1,1)
+- Tier 1 adventure tile (explored)
+- No adventure cards left
+
+Tile (1,2)
+- Starred Resource tile providing 2 food
+- Claimed by Alice
+- Protected by unit in neighbouring tile
+
+Tile (1,3)
+- Tier 1 adventure tile (explored)
+- No adventure cards left
+
+Tile (1,4)
+- Resource tile providing 1 wood
+- Claimed by Diana
+- Diana champion1 is here
+
+Tile (1,5)
+- Tier 1 adventure tile (explored)
+- No adventure cards left
+
+Tile (1,6)
+- Resource tile providing 1 food
+- Claimed by Diana
+
+Tile (1,7)
+- Tier 1 adventure tile (explored)
+
+Tile (2,0)
+- Resource tile providing 1 ore
+- Claimed by Alice
+- Protected by unit in neighbouring tile
+
+Tile (2,1)
+- Resource tile providing 1 food
+- Claimed by Alice
+
+Tile (2,2)
+- Tier 2 adventure tile (explored)
+
+Tile (2,3)
+- Starred Resource tile providing 1 wood, 1 ore
+- Claimed by Bob
+- Protected by unit in neighbouring tile
+- Bob champion2 is here
+
+Tile (2,4)
+- Unexplored tier 2 tile
+
+Tile (2,5)
+- Unexplored tier 2 tile
+
+Tile (2,6)
+- Resource tile providing 1 gold
+- Claimed by Diana
+
+Tile (2,7)
+- Wolf Den (empty, wolf slain)
+
+Tile (3,0)
+- Tier 1 oasis
+- Alice champion2 is here
+
+Tile (3,1)
+- Resource tile providing 1 gold
+- Claimed by Alice
+- Protected by unit in neighbouring tile
+
+Tile (3,2)
+- Starred Resource tile providing 2 food
+- Claimed by Bob
+- Protected by unit in neighbouring tile
+- Alice champion3 is here (not blockading)
+
+Tile (3,3)
+- Doomspire Dragon (might 8 + 2D3). Impress it (17+ fame, 12+ gold, 4+ starred tiles, or defeat it in combat) or be eaten. First player to impress it 2 times wins
+- Dragon's treasure hoard: 2 stack(s) remaining (take one as reward for impressing the dragon)
+- Bob champion1 is here
+
+Tile (3,4)
+- Tier 3 adventure tile (explored)
+- No adventure cards left
+- Monster: troll-lord (troll) (might 10) (reward 4 fame, 3 ore, 3 gold)
+
+Tile (3,5)
+- Unexplored tier 2 tile
+
+Tile (3,6)
+- Tier 1 oasis
+
+Tile (3,7)
+- Tier 2 adventure tile (explored)
+
+Tile (4,0)
+- Starred Resource tile providing 2 ore
+- Claimed by Alice
+- Protected by unit in neighbouring tile
+
+Tile (4,1)
+- Trader (no combat). Exchange 2 of any resource (food/wood/ore/gold) for 1 of any resource. Buy weapons/tools/items for gold. Once per round
+- Charlie champion1 is here
+
+Tile (4,2)
+- Tier 1 oasis
+
+Tile (4,3)
+- Tier 3 adventure tile (explored)
+
+Tile (4,4)
+- Tier 3 adventure tile (explored)
+
+Tile (4,5)
+- Unexplored tier 2 tile
+
+Tile (4,6)
+- Tier 1 adventure tile (explored)
+
+Tile (4,7)
+- Resource tile providing 1 wood
+- Claimed by Diana
+
+Tile (5,0)
+- Tier 1 adventure tile (explored)
+
+Tile (5,1)
+- Resource tile providing 1 ore
+- Claimed by Charlie
+- Protected by unit in neighbouring tile
+- Charlie champion2 is here
+
+Tile (5,2)
+- Starred Resource tile providing 2 wood
+- Claimed by Alice
+
+Tile (5,3)
+- Tier 2 adventure tile (explored)
+
+Tile (5,4)
+- Bear Cave
+- Monster: bear (beast) (might 5) (reward 2 fame, 3 food)
+
+Tile (5,5)
+- Tier 2 adventure tile (explored)
+
+Tile (5,6)
+- Tier 2 adventure tile (explored)
+
+Tile (5,7)
+- Resource tile providing 1 ore
+- Claimed by Diana
+
+Tile (6,0)
+- Resource tile providing 1 wood
+- Claimed by Charlie
+
+Tile (6,1)
+- Wolf Den (empty, wolf slain)
+
+Tile (6,2)
+- Tier 1 adventure tile (explored)
+
+Tile (6,3)
+- Unclaimed Resource tile providing 1 ore
+
+Tile (6,4)
+- Tier 1 oasis
+
+Tile (6,5)
+- Resource tile providing 1 food
+- Claimed by Diana
+- Diana champion2 is here
+
+Tile (6,6)
+- Wolf Den (empty, wolf slain)
+
+Tile (6,7)
+- Tier 1 adventure tile (explored)
+- No adventure cards left
+
+Tile (7,0)
+- Home tile for Charlie (can ONLY be entered by Charlie's champions)
+
+Tile (7,1)
+- Tier 1 adventure tile (explored)
+- No adventure cards left
+
+Tile (7,2)
+- Starred Resource tile providing 1 food, 1 ore
+- Claimed by Charlie
+
+Tile (7,3)
+- Unclaimed Resource tile providing 1 wood
+
+Tile (7,4)
+- Tier 1 adventure tile (explored)
+- Monster: entling (plant) (might 4) (reward 1 fame, 3 wood)
+
+Tile (7,5)
+- Tier 2 adventure tile (explored)
+- No adventure cards left
+- Monster: bear (beast) (might 5) (reward 2 fame, 3 food)
+
+Tile (7,6)
+- Resource tile providing 1 food
+- Claimed by Diana
+- Protected by unit in neighbouring tile
+
+Tile (7,7)
+- Home tile for Diana (can ONLY be entered by Diana's champions)
+- Diana champion3 is here

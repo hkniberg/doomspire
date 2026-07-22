@@ -291,6 +291,19 @@ export function deductWood(player: Player, amount: number): boolean {
 /**
  * Check if a player can afford a given cost
  */
+/**
+ * Wrap a thinking logger so every thought is prefixed with the player's name.
+ * Players can think in parallel (fate and harvest phases) and can be asked for decisions
+ * outside their own turn (flee choices, combat support, council votes), so the thinking
+ * content must carry its own attribution to be readable in the game log.
+ */
+export function prefixThinkingWithPlayerName(
+  playerName: string,
+  thinkingLogger?: (content: string) => void,
+): ((content: string) => void) | undefined {
+  return thinkingLogger ? (content: string) => thinkingLogger(`${playerName}: ${content}`) : undefined;
+}
+
 export function canAfford(player: Player, cost: Record<ResourceType, number>): boolean {
   return player.resources.food >= cost.food &&
     player.resources.wood >= cost.wood &&

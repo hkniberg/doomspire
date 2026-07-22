@@ -47,7 +47,7 @@ The board is divided into four regions: Ocean, Flatlands, Hills, and Mountains, 
 - **Hills**: This is the second innermost layer of tiles, a ring of tiles surrounding the center.
 - **Mountains**: These are the center 4 tiles, containing dragonspire and 3 adventure tiles with high risk/reward.
 
-All hill and mountain tiles start unexplored (face down).
+All hill and mountain tiles start unexplored (face down). The hill tiles are a mix of adventure tiles, bear dens, an oasis, and starred resource tiles — you don't know which until you explore.
 
 ---
 

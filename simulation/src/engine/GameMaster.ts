@@ -192,7 +192,8 @@ export class GameMaster {
 
     try {
       const logFn = (type: string, content: string) => this.addGameLogEntry(type as GameLogEntryType, content);
-      const thinkingLogger = (content: string) => this.addGameLogEntry("thinking", content);
+      // Attribute thinking to the deciding player, since all players think in parallel during the fate phase
+      const thinkingLogger = (playerName: string, content: string) => this.addGameLogEntry("thinking", content, playerName);
       await resolveFateCard(fateCard, this.gameState, this.playerAgents, this.gameLog, logFn, thinkingLogger);
     } catch (error) {
       console.error("Error resolving fate card:", error);
@@ -997,6 +998,8 @@ export class GameMaster {
         champion.hasInteractedThisRound = true;
       }
     };
+    const championIsStillOnTile = (): boolean =>
+      !!champion && champion.position.row === tile.position.row && champion.position.col === tile.position.col;
 
     // Step 1: Handle exploration (automatic)
     const wasUnexplored = !tile.explored;
@@ -1059,6 +1062,13 @@ export class GameMaster {
         // Champion lost to monster, defeat effects already applied by combat handler
         return;
       }
+    }
+
+    // If the champion fled from combat, it is no longer on this tile and cannot
+    // interact with it further (no adventure cards, claiming, etc.)
+    if (!championIsStillOnTile()) {
+      markInteracted();
+      return;
     }
 
     // Step 3: Handle Doomspire (impress the dragon or be eaten)
@@ -1143,6 +1153,13 @@ export class GameMaster {
     }
 
     // === Voluntary interactions ===
+
+    // The champion may have been moved away by an adventure card (fled from a drawn
+    // monster, Landslide, chased home by the angry dog, etc.) - if so, it cannot
+    // interact with this tile anymore
+    if (!championIsStillOnTile()) {
+      return;
+    }
 
     // Visiting the temple frees any stuck ring (mysterious ring, outcome 1)
     if (tile.tileType === "temple" && champion) {
@@ -1414,9 +1431,9 @@ export class GameMaster {
    * Fate and roll phase entries are table-wide (no player attribution), since they happen
    * for all players together - the content itself names any affected players.
    */
-  private addGameLogEntry(type: GameLogEntryType, content: string): void {
+  private addGameLogEntry(type: GameLogEntryType, content: string, explicitPlayerName?: string): void {
     const isPlayerScopedPhase = this.currentPhase === "move" || this.currentPhase === "harvest";
-    const playerName = isPlayerScopedPhase && type !== "victory" ? this.gameState.getCurrentPlayer().name : undefined;
+    const playerName = explicitPlayerName ?? (isPlayerScopedPhase && type !== "victory" ? this.gameState.getCurrentPlayer().name : undefined);
     const entry: GameLogEntry = {
       round: this.gameState.currentRound,
       phase: this.currentPhase,

@@ -18,7 +18,7 @@ export const tileActionSchema = {
   properties: {
     claimTile: {
       type: "boolean",
-      description: "Whether to claim this tile (place a flag)"
+      description: "Claim this tile (place a village). Does nothing unless the tile is an unclaimed resource tile and your champion is still on it after any combat - so set it speculatively when entering unexplored tiles or fighting on a resource tile. A successful claim counts as the tile interaction, ending this champion's dice actions this round."
     },
     useTrader: {
       type: "boolean",

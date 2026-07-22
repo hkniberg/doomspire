@@ -29,7 +29,8 @@ interface FateContext {
   playerAgents: PlayerAgent[];
   gameLog: readonly GameLogEntry[];
   logFn: LogFn;
-  thinkingLogger?: (content: string) => void;
+  // Receives the deciding player's name, so parallel fate-phase thinking can be attributed in the log
+  thinkingLogger?: (playerName: string, content: string) => void;
 }
 
 function getAgent(ctx: FateContext, playerName: string): PlayerAgent | undefined {
@@ -51,7 +52,10 @@ async function askDecision(
     return options[0].id;
   }
   try {
-    const decision = await agent.makeDecision(ctx.gameState, ctx.gameLog, { description, options }, ctx.thinkingLogger);
+    const playerThinkingLogger = ctx.thinkingLogger
+      ? (content: string) => ctx.thinkingLogger!(playerName, content)
+      : undefined;
+    const decision = await agent.makeDecision(ctx.gameState, ctx.gameLog, { description, options }, playerThinkingLogger);
     if (options.some((o) => o.id === decision.choice)) {
       return decision.choice;
     }
@@ -247,7 +251,7 @@ export async function resolveFateCard(
   playerAgents: PlayerAgent[],
   gameLog: readonly GameLogEntry[],
   logFn: LogFn,
-  thinkingLogger?: (content: string) => void
+  thinkingLogger?: (playerName: string, content: string) => void
 ): Promise<void> {
   const ctx: FateContext = { card, gameState, playerAgents, gameLog, logFn, thinkingLogger };
   const players = gameState.players;
@@ -285,15 +289,13 @@ export async function resolveFateCard(
     }
 
     case "dragons-shadow": {
-      const doomspire = findTileOfType(ctx, "doomspire");
-      if (doomspire) {
-        for (const player of players) {
-          for (const champion of player.champions) {
-            const distance = Math.abs(champion.position.row - doomspire.row) + Math.abs(champion.position.col - doomspire.col);
-            if (distance > 0 && distance <= 2) {
-              champion.position = { ...player.homePosition };
-              logFn("fate", `${player.name}'s champion${champion.id} flees home from the dragon's shadow`);
-            }
+      for (const player of players) {
+        for (const champion of player.champions) {
+          const tile = gameState.board.getTileAt(champion.position);
+          // Hills (tier 2) and mountains (tier 3). Knights already at Doomspire are unaffected.
+          if (tile && (tile.tier ?? 1) >= 2 && tile.tileType !== "doomspire") {
+            champion.position = { ...player.homePosition };
+            logFn("fate", `${player.name}'s champion${champion.id} flees home from the dragon's shadow`);
           }
         }
       }

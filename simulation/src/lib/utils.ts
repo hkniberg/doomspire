@@ -36,6 +36,14 @@ export function formatCost(cost: Record<string, number>): string {
 }
 
 /**
+ * Strip the markdown-style formatting used in card descriptions (asterisks, backticks)
+ * and collapse newlines, so the description fits on a single game log line.
+ */
+export function stripCardFormatting(description: string): string {
+  return description.replace(/[*`]/g, "").replace(/\s*\n\s*/g, " ").trim();
+}
+
+/**
  * Calculate Manhattan distance between two positions
  */
 export function getManhattanDistance(pos1: Position, pos2: Position): number {

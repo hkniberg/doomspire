@@ -5,6 +5,7 @@ import { GameState } from "@/game/GameState";
 import { Card } from "@/lib/cards";
 import { GameSettings } from "@/lib/GameSettings";
 import { EventCardResult, GameLogEntry, Monster, Player, Tile } from "@/lib/types";
+import { stripCardFormatting } from "@/lib/utils";
 import { PlayerAgent } from "@/players/PlayerAgent";
 import { resolveMonsterPlacementAndCombat } from "./combatHandler";
 import { handleBlessingOfTheLonesome } from "./cardHandlers/blessingOfTheLonesomeHandler";
@@ -161,7 +162,7 @@ export async function handleEventCardFromAdventure(
     };
   }
 
-  logFn("event", `Champion${championId} drew event card: ${eventCard.name}!`);
+  logFn("event", `Champion${championId} drew event card: ${eventCard.name} - ${stripCardFormatting(eventCard.description)}`);
 
   try {
     let eventResult: EventCardResult;
@@ -339,7 +340,7 @@ export async function handleEncounterCard(
     };
   }
 
-  logFn("event", `Champion${championId} encountered: ${encounter.name}!`);
+  logFn("event", `Champion${championId} encountered: ${encounter.name} - ${stripCardFormatting(encounter.description)}`);
 
   switch (cardId) {
     case "angry-dog": {

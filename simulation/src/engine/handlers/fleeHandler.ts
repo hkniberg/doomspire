@@ -103,12 +103,12 @@ async function handlePartialFleeLoss(
   // Nothing to lose or give
   if (availableResourceTypes.length === 0 && givableItems.length === 0) {
     if (isPvpFlee) {
-      logFn("combat", `Champion${championId} fled with nothing to give to the attacker`);
+      logFn("combat", `${player.name}'s champion${championId} fled with nothing to give to the attacker`);
     } else if (player.fame > 0) {
       player.fame--;
-      logFn("combat", `Champion${championId} lost 1 fame from fleeing (no resources available)`);
+      logFn("combat", `${player.name}'s champion${championId} lost 1 fame from fleeing (no resources available)`);
     } else {
-      logFn("combat", `Champion${championId} had no resources or fame to lose from fleeing`);
+      logFn("combat", `${player.name}'s champion${championId} had no resources or fame to lose from fleeing`);
     }
     return;
   }
@@ -149,9 +149,9 @@ async function handlePartialFleeLoss(
     player.resources[resourceType]--;
     if (isPvpFlee && context.attackerPlayer) {
       context.attackerPlayer.resources[resourceType]++;
-      logFn("combat", `Champion${championId} gave 1 ${resourceType} to ${context.attackerPlayer.name} while fleeing`);
+      logFn("combat", `${player.name}'s champion${championId} gave 1 ${resourceType} to ${context.attackerPlayer.name} while fleeing`);
     } else {
-      logFn("combat", `Champion${championId} lost 1 ${resourceType} from fleeing`);
+      logFn("combat", `${player.name}'s champion${championId} lost 1 ${resourceType} from fleeing`);
     }
   } else if (choice.startsWith("item_") && champion && attackerChampion && context.attackerPlayer) {
     const itemIndex = parseInt(choice.split("_")[1]);
@@ -160,9 +160,51 @@ async function handlePartialFleeLoss(
       champion.items.splice(itemIndex, 1);
       attackerChampion.items.push(givenItem);
       const itemName = givenItem.treasureCard?.name || givenItem.traderItem?.name || "Unknown Item";
-      logFn("combat", `Champion${championId} gave ${itemName} to ${context.attackerPlayer.name} while fleeing`);
+      logFn("combat", `${player.name}'s champion${championId} gave ${itemName} to ${context.attackerPlayer.name} while fleeing`);
     }
   }
+}
+
+/**
+ * Exact probability that the defender wins a PVP fight, given fixed modifiers
+ * (might + support). Both sides roll 2D3 and ties are rerolled, so this is the
+ * probability of winning conditional on the tie being broken. Ignores item/follower
+ * bonuses and support from other players, which are decided after the roll.
+ */
+function pvpDefenderWinProbability(defenderModifier: number, attackerModifier: number): number {
+  let defenderWins = 0;
+  let attackerWins = 0;
+  for (let a1 = 1; a1 <= 3; a1++) {
+    for (let a2 = 1; a2 <= 3; a2++) {
+      for (let d1 = 1; d1 <= 3; d1++) {
+        for (let d2 = 1; d2 <= 3; d2++) {
+          const attackerTotal = attackerModifier + a1 + a2;
+          const defenderTotal = defenderModifier + d1 + d2;
+          if (defenderTotal > attackerTotal) {
+            defenderWins++;
+          } else if (attackerTotal > defenderTotal) {
+            attackerWins++;
+          }
+        }
+      }
+    }
+  }
+  return defenderWins / (defenderWins + attackerWins);
+}
+
+/**
+ * Exact probability that the champion beats a monster: roll 1D3, win if
+ * might + support + roll >= monster might (ties go to the champion).
+ * Ignores item/follower bonuses, which are decided after the roll.
+ */
+function monsterWinProbability(championModifier: number, monsterMight: number): number {
+  let wins = 0;
+  for (let roll = 1; roll <= 3; roll++) {
+    if (championModifier + roll >= monsterMight) {
+      wins++;
+    }
+  }
+  return wins / 3;
 }
 
 /**
@@ -190,9 +232,29 @@ export async function handleFleeDecision(
     };
   }
 
+  // Describe the combat situation, including automatic support from each side's
+  // own adjacent units, so the player can judge the odds before deciding
+  const positionText = `(${context.tile.position.row}, ${context.tile.position.col})`;
+  const ownSupport = context.gameState.getCombatSupport(context.player.name, context.tile.position, context.championId);
+  const ownStrengthText = `Your combat strength: might ${context.player.might}${ownSupport > 0 ? ` + ${ownSupport} support from your nearby units` : ""} + your dice roll.`;
+
+  let situationText = "";
+  if (context.combatType === 'champion' && context.attackerPlayer) {
+    const attackerSupport = context.gameState.getCombatSupport(context.attackerPlayer.name, context.tile.position, context.attackerChampionId);
+    const attackerStrengthText = `might ${context.attackerPlayer.might}${attackerSupport > 0 ? ` + ${attackerSupport} support from their nearby units` : ""} + their dice roll`;
+    const winChance = pvpDefenderWinProbability(context.player.might + ownSupport, context.attackerPlayer.might + attackerSupport);
+    const oddsText = `Your chance to win if you fight: ~${Math.round(winChance * 100)}% (ignoring item/follower bonuses and possible support from other players).`;
+    situationText = `${context.attackerPlayer.name}'s champion${context.attackerChampionId} (${attackerStrengthText}) is attacking your champion${context.championId} at ${positionText}. ${ownStrengthText} ${oddsText} `;
+  } else if (context.tile.monster) {
+    const monster = context.tile.monster;
+    const winChance = monsterWinProbability(context.player.might + ownSupport, monster.might);
+    const oddsText = `Your chance to win if you fight: ${Math.round(winChance * 100)}% (ignoring item/follower bonuses and possible support from other players).`;
+    situationText = `Your champion${context.championId} at ${positionText} faces a ${monster.name} (might ${monster.might}, reward: ${monster.fame} fame + ${formatResources(monster.resources)}). ${ownStrengthText} ${oddsText} `;
+  }
+
   // Create decision context for fight/flee choice
   const decisionContext: DecisionContext = {
-    description: `Choose action for ${context.combatType} combat:`,
+    description: `${situationText}Choose action for ${context.combatType} combat:`,
     options: [
       {
         id: "fight",
@@ -211,7 +273,7 @@ export async function handleFleeDecision(
   try {
     decision = await playerAgent.makeDecision(context.gameState, gameLog, decisionContext, thinkingLogger);
   } catch (error) {
-    logFn("combat", `Champion${context.championId}'s fight/flee decision failed (${error instanceof Error ? error.message : String(error)}) - defaulting to fight`);
+    logFn("combat", `${context.player.name}'s champion${context.championId}'s fight/flee decision failed (${error instanceof Error ? error.message : String(error)}) - defaulting to fight`);
     decision = { choice: "fight" };
   }
 
@@ -224,11 +286,11 @@ export async function handleFleeDecision(
 
   // Player chose to flee - roll for outcome
   const fleeRoll = rollD3();
-  logFn("combat", `Champion${context.championId} attempts to flee, rolled [${fleeRoll}]`);
+  logFn("combat", `${context.player.name}'s champion${context.championId} attempts to flee, rolled [${fleeRoll}]`);
 
   if (fleeRoll === 1) {
     // Failure - combat proceeds normally
-    logFn("combat", `Flee attempt failed, combat proceeds`);
+    logFn("combat", `${context.player.name}'s flee attempt failed, combat proceeds`);
     return {
       attemptedFlee: true,
       fleeSuccessful: false,
@@ -252,10 +314,10 @@ export async function handleFleeDecision(
     let destination: Position;
     if (closestOwnedTile) {
       destination = closestOwnedTile;
-      logFn("combat", `Champion${context.championId} fled to closest owned tile at (${destination.row}, ${destination.col})`);
+      logFn("combat", `${context.player.name}'s champion${context.championId} fled to closest owned tile at (${destination.row}, ${destination.col})`);
     } else {
       destination = context.player.homePosition;
-      logFn("combat", `Champion${context.championId} fled to home tile (no owned tiles available)`);
+      logFn("combat", `${context.player.name}'s champion${context.championId} fled to home tile (no owned tiles available)`);
     }
 
     champion.position = destination;
@@ -272,7 +334,7 @@ export async function handleFleeDecision(
 
   // fleeRoll === 3 - Success - flee to home tile without loss
   champion.position = context.player.homePosition;
-  logFn("combat", `Champion${context.championId} fled to home tile without loss`);
+  logFn("combat", `${context.player.name}'s champion${context.championId} fled to home tile without loss`);
 
   return {
     attemptedFlee: true,

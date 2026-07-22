@@ -67,6 +67,12 @@ interface CombatBonusContext {
   isPvp: boolean;
   isDragonFight: boolean;
   monster?: Monster; // For monster-type-specific items (spear, trollsbane)
+  // Known combat state at decision time, so agents can judge whether a costly
+  // item is actually needed (the dice are already rolled when this is asked).
+  ownBaseTotal?: number; // might + dice + support, before item/follower bonuses
+  opponentLabel?: string;
+  opponentTotal?: number;
+  opponentTotalNote?: string; // e.g. "may still add item bonuses" or "you win ties"
 }
 
 /**
@@ -223,8 +229,19 @@ async function computeCombatBonuses(
     let useIt = true;
 
     if (playerAgent && gameState && gameLog) {
+      // Tell the agent where the fight stands, so it doesn't waste a costly
+      // item on a battle that is already decided.
+      let situation = "";
+      if (context.ownBaseTotal !== undefined && context.opponentTotal !== undefined) {
+        const ownTotal = context.ownBaseTotal + mightBonus;
+        const note = context.opponentTotalNote ? ` (${context.opponentTotalNote})` : "";
+        situation =
+          `Dice are rolled: your combat total is currently ${ownTotal} vs ` +
+          `${context.opponentLabel ?? "opponent"}'s ${context.opponentTotal}${note}. ` +
+          `Using ${choice.name} would raise your total to ${ownTotal + choice.mightBonus}. `;
+      }
       const decisionContext: DecisionContext = {
-        description: `Use ${choice.name}? (${choice.effect})`,
+        description: `${situation}Use ${choice.name}? (${choice.effect})`,
         options: [
           { id: "yes", description: `Yes, use ${choice.name}` },
           { id: "no", description: `No, save ${choice.name} for later` }
@@ -386,6 +403,49 @@ function countOwnedResourceTiles(gameState: GameState, playerName: string): numb
 }
 
 /**
+ * Enumerate loot bundles of `count` resources from the given stock, so the looter
+ * can choose the whole bundle in a single decision. To keep the option list small
+ * (at most 4! = 24, regardless of count), only "greedy" bundles are offered: for each
+ * priority ordering of the resource types, take as much as possible of the first
+ * type, then the next, etc. This covers every bundle a looter would plausibly want.
+ * Exported for testing.
+ */
+export function enumerateResourceCombos(
+  stock: Record<ResourceType, number>,
+  count: number
+): Record<ResourceType, number>[] {
+  const availableTypes = (["food", "wood", "ore", "gold"] as ResourceType[]).filter((type) => stock[type] > 0);
+
+  const permutations = (types: ResourceType[]): ResourceType[][] => {
+    if (types.length <= 1) return [types];
+    return types.flatMap((type, index) =>
+      permutations([...types.slice(0, index), ...types.slice(index + 1)]).map((rest) => [type, ...rest])
+    );
+  };
+
+  const combos: Record<ResourceType, number>[] = [];
+  const seen = new Set<string>();
+
+  for (const ordering of permutations(availableTypes)) {
+    const combo: Record<ResourceType, number> = { food: 0, wood: 0, ore: 0, gold: 0 };
+    let remaining = count;
+    for (const type of ordering) {
+      const amount = Math.min(stock[type], remaining);
+      combo[type] = amount;
+      remaining -= amount;
+      if (remaining === 0) break;
+    }
+    const key = `${combo.food}/${combo.wood}/${combo.ore}/${combo.gold}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      combos.push(combo);
+    }
+  }
+
+  return combos;
+}
+
+/**
  * Loot a defeated champion after PVP combat, per the rules:
  * - Steal 1 item from the defeated knight's inventory (if any can be stolen and there is space)
  * - Steal ceil(ownedResourceTiles / 2) resources from the defeated player
@@ -436,7 +496,7 @@ async function lootDefeatedChampion(
     itemOptions.push({ id: "no_item", description: "Do not steal an item" });
 
     const decision = await makeChoice({
-      description: `${deciderLabel}: choose which item is looted from the defeated knight (1 item may be stolen):`,
+      description: `${deciderLabel}: ${winnerPlayer.name} won the fight against ${loserPlayer.name}'s knight and may steal 1 item. Choose which item is looted:`,
       options: itemOptions
     });
 
@@ -452,39 +512,44 @@ async function lootDefeatedChampion(
     }
   }
 
-  // 2. Steal resources: ceil(ownedResourceTiles / 2), one at a time
+  // 2. Steal resources: ceil(ownedResourceTiles / 2), chosen as one bundle (single decision)
   const resourceStealCount = Math.ceil(countOwnedResourceTiles(gameState, loserPlayer.name) / 2);
-  let resourcesStolen: Partial<Record<ResourceType, number>> = {};
+  const totalStock = (["food", "wood", "ore", "gold"] as ResourceType[])
+    .reduce((sum, type) => sum + loserPlayer.resources[type], 0);
+  const stealCount = Math.min(resourceStealCount, totalStock);
+  let resourcesStolen: Record<ResourceType, number> = { food: 0, wood: 0, ore: 0, gold: 0 };
 
-  for (let i = 0; i < resourceStealCount; i++) {
-    const availableTypes = (["food", "wood", "ore", "gold"] as ResourceType[]).filter(
-      (type) => loserPlayer.resources[type] > 0
-    );
-    if (availableTypes.length === 0) break;
+  if (stealCount > 0) {
+    const combos = enumerateResourceCombos(loserPlayer.resources, stealCount);
+    let chosenCombo = combos[0];
 
-    let chosenType: ResourceType;
-    if (availableTypes.length === 1) {
-      chosenType = availableTypes[0];
-    } else {
-      const resourceOptions: DecisionOption[] = availableTypes.map((type) => ({
-        id: type,
-        description: `Steal 1 ${type} (${loserPlayer.name} has ${loserPlayer.resources[type]})`
+    if (combos.length > 1) {
+      const comboOptions: DecisionOption[] = combos.map((combo, index) => ({
+        id: `combo_${index}`,
+        description: Object.entries(combo)
+          .filter(([, amount]) => amount > 0)
+          .map(([type, amount]) => `${amount} ${type}`)
+          .join(" + ")
       }));
       const decision = await makeChoice({
-        description: `${deciderLabel}: choose resource ${i + 1} of ${resourceStealCount} to be looted:`,
-        options: resourceOptions
+        description: `${deciderLabel}: ${winnerPlayer.name} won the fight against ${loserPlayer.name}'s knight and loots ${stealCount} resource(s). Choose which:`,
+        options: comboOptions
       });
-      chosenType = (availableTypes.includes(decision.choice as ResourceType)
-        ? decision.choice
-        : availableTypes[0]) as ResourceType;
+      const comboIndex = decision.choice.startsWith("combo_") ? parseInt(decision.choice.split("_")[1]) : 0;
+      chosenCombo = combos[comboIndex >= 0 && comboIndex < combos.length ? comboIndex : 0];
     }
 
-    loserPlayer.resources[chosenType] -= 1;
-    winnerPlayer.resources[chosenType] += 1;
-    resourcesStolen[chosenType] = (resourcesStolen[chosenType] || 0) + 1;
+    for (const type of ["food", "wood", "ore", "gold"] as ResourceType[]) {
+      const amount = chosenCombo[type];
+      if (amount > 0) {
+        loserPlayer.resources[type] -= amount;
+        winnerPlayer.resources[type] += amount;
+        resourcesStolen[type] = amount;
+      }
+    }
   }
 
-  const stolenParts = Object.entries(resourcesStolen).map(([type, amount]) => `${amount} ${type}`);
+  const stolenParts = Object.entries(resourcesStolen).filter(([, amount]) => amount > 0).map(([type, amount]) => `${amount} ${type}`);
   if (stolenParts.length > 0) {
     lootDescriptions.push(`stole ${stolenParts.join(", ")}`);
   }
@@ -561,9 +626,7 @@ export async function resolveChampionVsChampionCombat(
       };
     }
 
-    if (defenderFleeResult.attemptedFlee && !defenderFleeResult.fleeSuccessful) {
-      logFn("combat", "Defender's flee attempt failed, proceeding with combat");
-    }
+    // A failed flee attempt is already logged by the flee handler (with player name)
   }
 
   // Roll dice for both sides (2D3 each)
@@ -598,12 +661,29 @@ export async function resolveChampionVsChampionCombat(
   // Item/follower bonuses (decided once, after seeing the dice and support)
   const underdogShieldsCancel = hasUnderdogShield(attackingChampion) && hasUnderdogShield(opposingChampion);
 
+  const attackerBase = attackingPlayer.might + attackerDice.total + attackerSupport;
+  const defenderBase = defendingPlayer.might + defenderDice.total + defenderSupport;
+
   const attackerBonuses = await computeCombatBonuses(
-    attackingChampion, attackingPlayer, { isPvp: true, isDragonFight: false },
+    attackingChampion, attackingPlayer,
+    {
+      isPvp: true, isDragonFight: false,
+      ownBaseTotal: attackerBase,
+      opponentLabel: defendingPlayer.name,
+      opponentTotal: defenderBase,
+      opponentTotalNote: "they may still add item bonuses; ties are rerolled",
+    },
     logFn, playerAgent, gameState, gameLog, thinkingLogger
   );
   const defenderBonuses = await computeCombatBonuses(
-    opposingChampion, defendingPlayer, { isPvp: true, isDragonFight: false },
+    opposingChampion, defendingPlayer,
+    {
+      isPvp: true, isDragonFight: false,
+      ownBaseTotal: defenderBase,
+      opponentLabel: attackingPlayer.name,
+      opponentTotal: attackerBase + attackerBonuses.mightBonus,
+      opponentTotalNote: "includes their item bonuses; ties are rerolled",
+    },
     logFn, defendingPlayerAgent, gameState, gameLog, thinkingLogger
   );
 
@@ -638,6 +718,14 @@ export async function resolveChampionVsChampionCombat(
 
   const attackerWins = attackerTotal > defenderTotal;
 
+  // Log final totals (including might, support and item bonuses) before any loot
+  // decisions, so agents see the true outcome rather than just the raw dice rolls.
+  logFn(
+    "combat",
+    `Final combat totals with bonuses: ${attackingPlayer.name} ${attackerTotal} vs ${defendingPlayer.name} ${defenderTotal}. ` +
+    `${attackerWins ? attackingPlayer.name : defendingPlayer.name} wins.`
+  );
+
   // Remove items that break after combat (win or lose)
   removeBrokenItems(attackingChampion, attackerBonuses.itemsToRemove, logFn, "attacker's");
   removeBrokenItems(opposingChampion, defenderBonuses.itemsToRemove, logFn, "defender's");
@@ -655,7 +743,7 @@ export async function resolveChampionVsChampionCombat(
       gameLog, logFn, thinkingLogger
     );
 
-    const fullCombatDetails = `Defeated ${defendingPlayer.name}'s champion (${attackerTotal} vs ${defenderTotal}), who went home. Loot: ${lootInfo}`;
+    const fullCombatDetails = `${attackingPlayer.name}'s champion${attackingChampionId} defeated ${defendingPlayer.name}'s champion (${attackerTotal} vs ${defenderTotal}), who went home. Loot: ${lootInfo}`;
     logFn("combat", fullCombatDetails);
 
     // Track combat statistics
@@ -688,11 +776,11 @@ export async function resolveChampionVsChampionCombat(
       );
     }
 
-    const fullCombatDetails = `was defeated by ${defendingPlayer.name}'s champion (${attackerTotal} vs ${defenderTotal}). Loot: ${lootInfo}`;
+    const fullCombatDetails = `${attackingPlayer.name}'s champion${attackingChampionId} was defeated by ${defendingPlayer.name}'s champion (${attackerTotal} vs ${defenderTotal}) and went home. Loot: ${lootInfo}`;
 
     // Send attacking champion home (no healing cost for champion vs champion combat)
     gameState.moveChampionToHome(attackingPlayer.name, attackingChampionId);
-    logFn("combat", `${fullCombatDetails}, went home`);
+    logFn("combat", fullCombatDetails);
 
     // Track combat statistics
     if (defendingPlayer.statistics) {
@@ -758,7 +846,15 @@ async function performChampionVsMonsterCombat(
   const { mightBonus, itemsToRemove } = await computeCombatBonuses(
     champion,
     player,
-    { isPvp: false, isDragonFight: false, monster },
+    {
+      isPvp: false,
+      isDragonFight: false,
+      monster,
+      ownBaseTotal: player.might + championRoll + supportBonus,
+      opponentLabel: monster.name,
+      opponentTotal: monster.might,
+      opponentTotalNote: "you win ties",
+    },
     logFn,
     playerAgent,
     gameState,
@@ -774,8 +870,8 @@ async function performChampionVsMonsterCombat(
   const championWins = championTotal >= monster.might;
 
   const combatDetails = championWins
-    ? `Defeated ${monster.name} (${championTotal} vs ${monster.might})`
-    : `Fought ${monster.name}, but was defeated (${championTotal} vs ${monster.might})`;
+    ? `${player.name}'s champion${championId} defeated ${monster.name} (${championTotal} vs ${monster.might})`
+    : `${player.name}'s champion${championId} fought ${monster.name}, but was defeated (${championTotal} vs ${monster.might})`;
 
   return { championWins, combatDetails, itemsToRemove };
 }
@@ -885,10 +981,8 @@ export async function resolveChampionVsMonsterCombat(
       };
     }
 
-    // If flee was attempted but failed, or player chose to fight, continue with combat
-    if (fleeResult.attemptedFlee && !fleeResult.fleeSuccessful) {
-      logFn("combat", "Flee attempt failed, proceeding with combat");
-    }
+    // If flee was attempted but failed (already logged by the flee handler),
+    // or the player chose to fight, continue with combat
   }
 
   const { championWins, combatDetails, itemsToRemove } = await performChampionVsMonsterCombat(
@@ -1128,7 +1222,14 @@ export async function resolveChampionVsDragonEncounter(
   const { mightBonus, itemsToRemove } = await computeCombatBonuses(
     champion,
     player,
-    { isPvp: false, isDragonFight: true },
+    {
+      isPvp: false,
+      isDragonFight: true,
+      ownBaseTotal: player.might + championDice.total + championSupport,
+      opponentLabel: "the dragon",
+      opponentTotal: dragonMight + dragonDice.total + dragonSupport,
+      opponentTotalNote: "ties are rerolled",
+    },
     logFn,
     playerAgent,
     gameState,
@@ -1165,17 +1266,17 @@ export async function resolveChampionVsDragonEncounter(
   if (!championWins) {
     // Champion was defeated by dragon - they get EATEN (permanently removed from game)
     const combatDetails = `was eaten by the dragon (${championTotal} vs ${dragonTotal})!`;
-    logFn("combat", `Champion${championId} ${combatDetails}`);
+    logFn("combat", `${player.name}'s champion${championId} ${combatDetails}`);
 
     // Remove the champion permanently (eaten by dragon), along with items and followers
     const championIndex = player.champions.findIndex(c => c.id === championId);
     if (championIndex !== -1) {
       const eatenChampion = player.champions[championIndex];
       if (eatenChampion.items.length > 0) {
-        logFn("combat", `Champion${championId}'s items are lost forever!`);
+        logFn("combat", `${player.name}'s champion${championId}'s items are lost forever!`);
       }
       if (eatenChampion.followers.length > 0) {
-        logFn("combat", `Champion${championId}'s followers are lost forever!`);
+        logFn("combat", `${player.name}'s champion${championId}'s followers are lost forever!`);
       }
       player.champions.splice(championIndex, 1);
     }
