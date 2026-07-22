@@ -101,7 +101,7 @@ If so, *every player* must send **1 champion** to the trader, or refuse and pay 
     name: "Blessing of the lonesome",
     tier: 2,
     description:
-      "Lords with a *lone knight* in play gain `+1 might`. Lords with *two or more knights* gain `+1 fame`. The blessing turns into a curse: the **food tax is doubled** next round.",
+      "Lords with a *lone knight* in play gain `+1 might`. Lords with *two or more knights* gain `+1 fame`. The blessing turns into a curse: the **dice tax is doubled** next round.",
     count: 1,
     theme: "beast",
   },

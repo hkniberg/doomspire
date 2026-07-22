@@ -438,7 +438,7 @@ The game has 4 types of resources: **gold**, **food**, **wood**, and **ore**. Re
 - Use your market to sell resources for gold
 - Exchange items at the trader
 - Pay for healing after losing combat
-- Pay food tax for rolling extra dice
+- Pay dice tax for rolling extra dice
 - Trade with other players
 
 **How to earn resources**:
@@ -468,7 +468,7 @@ Owning resource tiles let you build a sustainable economy. They can also be used
 - **Recruit Knight**
   - Costs 3 Food, 3 Gold, and 1 Ore
   - Gives you another knight, place it on your home tile.
-  - Also gives you 1 extra die at the start of every turn, if you can afford the food tax (2 food).
+  - Also gives you 1 extra die at the start of every turn, if you can afford the dice tax (2 food).
   - You can have max 3 knights in total
 - **Build Boat**:
   - Costs 2 Wood, 2 Gold

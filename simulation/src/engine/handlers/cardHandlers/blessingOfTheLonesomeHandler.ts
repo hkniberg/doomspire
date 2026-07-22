@@ -4,7 +4,7 @@ import { EventCardResult } from "@/lib/types";
 /**
  * Handle the Blessing of the Lonesome event card.
  * Lords with a lone knight gain +1 might; those with two or more knights gain +1 fame.
- * The blessing turns into a curse: the food tax is doubled next round.
+ * The blessing turns into a curse: the dice tax is doubled next round.
  */
 export function handleBlessingOfTheLonesome(
   gameState: GameState,
@@ -23,7 +23,7 @@ export function handleBlessingOfTheLonesome(
   }
 
   gameState.doubleFoodTaxNextRound = true;
-  logFn("event", "The blessing turns into a curse: the food tax is doubled next round!");
+  logFn("event", "The blessing turns into a curse: the dice tax is doubled next round!");
 
   return {
     eventProcessed: true,

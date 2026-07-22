@@ -113,6 +113,14 @@ export const FATE_CARDS: FateCard[] = [
     effect:
       "**Council vote**: each player votes for a target player (fame = vote weight).\n**Result**: the target rolls one fewer die this round (minimum 1).\n**If targets are tied**: no one is affected.",
   },
+  {
+    id: "royal-honor",
+    name: "Royal Honor",
+    type: "council-target",
+    flavorText: "The council bestows its highest honor.",
+    effect:
+      "**Council vote**: each player votes for a target player (fame = vote weight).\n**Result**: the target with the most votes gains 2 fame.\n**If targets are tied**: no one is honored.",
+  },
 
   // Gathering Cards
   {
@@ -209,6 +217,43 @@ export const FATE_CARDS: FateCard[] = [
     effect:
       "The dragon is **absent** this round. Knights at Doomspire cannot impress the dragon, but may **take a treasure stack** (if any remain). Normal PVP rules apply - if multiple players want treasure, they'll have to fight for it.",
   },
+  {
+    id: "prosperous-crops",
+    name: "Prosperous Crops",
+    type: "event",
+    flavorText: "The granaries overflow with the season's bounty.",
+    effect: "**No dice tax** this round: all dice beyond the first two are free.",
+  },
+  {
+    id: "lean-times",
+    name: "Lean Times",
+    type: "event",
+    flavorText: "A hard season leaves the storehouses thin.",
+    effect: "The **dice tax is 3 food** per extra die this round (instead of 2).",
+  },
+  {
+    id: "trade-boom",
+    name: "Trade Boom",
+    type: "event",
+    flavorText: "Demand surges in the markets across the sea.",
+    effect: "All **Markets** sell resources at **1:1** instead of 2:1 this round.",
+  },
+  {
+    id: "dragon-gifts",
+    name: "Dragon Gifts",
+    type: "event",
+    flavorText: "The dragon rewards those who amuse it.",
+    effect:
+      "The player with the **most fame** gains 3 resources of their choice, the **second most** gains 2, everyone else gains 1. Tied players share the higher reward.",
+  },
+  {
+    id: "beasts-are-stirring",
+    name: "Beasts Are Stirring",
+    type: "event",
+    flavorText: "Something growls in the empty dens.",
+    effect:
+      "In turn order, each player **may place a beast** on an empty den: a *wolf* in the flatlands, a *bear* in the hills.",
+  },
 
   // Minor Cards
   {
@@ -232,5 +277,34 @@ export const FATE_CARDS: FateCard[] = [
     type: "minor",
     flavorText: "Luck favors the desperate.",
     effect: "The player with the **fewest total resources** gains 3 resources of their choice.",
+  },
+  {
+    id: "tailwind",
+    name: "Tailwind",
+    type: "minor",
+    flavorText: "A steady wind pushes at every knight's back.",
+    effect:
+      "Each **knight movement** gets **+1 step** this round. Applies once per movement: a sprint combining multiple dice still gains only +1 step.",
+  },
+  {
+    id: "bounty",
+    name: "Bounty",
+    type: "minor",
+    flavorText: "The council pays well for pest control.",
+    effect: "Defeating a **monster** grants **+1 fame** this round.",
+  },
+  {
+    id: "homesteading",
+    name: "Homesteading",
+    type: "minor",
+    flavorText: "Settlers flock to whoever plants a banner.",
+    effect: "**Claiming a resource tile** grants **+1 fame** this round.",
+  },
+  {
+    id: "cartographers-prize",
+    name: "Cartographer's Prize",
+    type: "minor",
+    flavorText: "The guild pays handsomely for new maps.",
+    effect: "**Exploring a tile** grants **+1 extra fame** this round (2 fame total per tile).",
   },
 ];
