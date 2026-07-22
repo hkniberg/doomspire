@@ -5,7 +5,7 @@ import { GameState } from "@/game/GameState";
 import { Card } from "@/lib/cards";
 import { GameSettings } from "@/lib/GameSettings";
 import { EventCardResult, GameLogEntry, Monster, Player, Tile } from "@/lib/types";
-import { stripCardFormatting } from "@/lib/utils";
+import { formatResources, stripCardFormatting } from "@/lib/utils";
 import { PlayerAgent } from "@/players/PlayerAgent";
 import { resolveMonsterPlacementAndCombat } from "./combatHandler";
 import { handleBlessingOfTheLonesome } from "./cardHandlers/blessingOfTheLonesomeHandler";
@@ -380,9 +380,55 @@ export async function handleEncounterCard(
     case "proud-mercenary":
     case "brawler":
     case "witch":
+    case "abandoned-mule":
     case "fairy-godmother": {
-      // Simple follower offers
+      // Simple follower offers. The Abandoned Mule's effects (max 2 movement per action die,
+      // +2 item slots) are applied via PlayerUtils.getChampionMovementBudget and getChampionItemCapacity.
       await offerFollower(cardId, encounter.name, gameState, player, playerAgent, championId, gameLog, logFn, thinkingLogger);
+      return { cardProcessed: true, cardType: "encounter", cardId };
+    }
+
+    case "wandering-monk": {
+      // Wololoo! Take over another player's resource tile (not home tile).
+      const targetTiles = gameState.board.findTiles(
+        (t) => t.tileType === "resource" && t.claimedBy !== undefined && t.claimedBy !== player.name
+      );
+      if (targetTiles.length === 0) {
+        logFn("event", `The wandering monk finds no opposing resource tiles to convert - nothing happens.`);
+        return { cardProcessed: true, cardType: "encounter", cardId };
+      }
+
+      const options = [
+        { id: "decline", description: "Decline (no tile is taken over)" },
+        ...targetTiles.map((t) => ({
+          id: `${t.position.row},${t.position.col}`,
+          description: `Take over ${t.claimedBy}'s resource tile at (${t.position.row}, ${t.position.col})${t.isStarred ? " (starred)" : ""}, providing ${formatResources(t.resources)}`
+        }))
+      ];
+
+      let choice = "decline";
+      try {
+        const decision = await playerAgent.makeDecision(gameState, gameLog, {
+          description: `A wandering monk offers to convert another player's resource tile to your cause (home tiles excluded). Choose a tile to take over, or decline.`,
+          options
+        }, thinkingLogger);
+        choice = options.some((o) => o.id === decision.choice) ? decision.choice : "decline";
+      } catch (error) {
+        choice = "decline";
+      }
+
+      if (choice === "decline") {
+        logFn("event", `Champion${championId} declines the wandering monk's offer.`);
+        return { cardProcessed: true, cardType: "encounter", cardId };
+      }
+
+      const [row, col] = choice.split(",").map(Number);
+      const targetTile = gameState.getTile({ row, col });
+      if (targetTile && targetTile.claimedBy && targetTile.claimedBy !== player.name) {
+        const previousOwner = targetTile.claimedBy;
+        targetTile.claimedBy = player.name;
+        logFn("event", `Wololoo! The wandering monk converts ${previousOwner}'s resource tile at (${row}, ${col}) - it now belongs to ${player.name}.`);
+      }
       return { cardProcessed: true, cardType: "encounter", cardId };
     }
 

@@ -67,9 +67,10 @@ export function handleBuildingUsage(
       && Object.values(usageDecision.sellAtMarket).some(amount => amount > 0);
     if (wantsToSell) {
       if (hasMarket) {
-        // The market sells resources at 2:1 for gold. Different resource types can be POOLED:
-        // e.g. selling 3 food and 1 wood yields 2 gold. Only the converted resources are deducted;
-        // an odd leftover resource is kept by the player.
+        // The market sells resources at 2:1 for gold (1:1 during the Trade Boom fate card).
+        // Different resource types can be POOLED: e.g. selling 3 food and 1 wood yields 2 gold.
+        // Only the converted resources are deducted; an odd leftover resource is kept by the player.
+        const marketRate = gameState?.fateEffects?.marketRate1to1 ? 1 : GameSettings.MARKET_EXCHANGE_RATE;
         const offered: Array<{ type: ResourceType; amount: number }> = [];
         for (const [resourceType, amount] of Object.entries(usageDecision.sellAtMarket!)) {
           if (amount > 0 && resourceType !== "gold") {
@@ -82,8 +83,8 @@ export function handleBuildingUsage(
         }
 
         const totalOffered = offered.reduce((sum, o) => sum + o.amount, 0);
-        const goldGained = Math.floor(totalOffered / GameSettings.MARKET_EXCHANGE_RATE);
-        let toDeduct = goldGained * GameSettings.MARKET_EXCHANGE_RATE;
+        const goldGained = Math.floor(totalOffered / marketRate);
+        let toDeduct = goldGained * marketRate;
 
         if (goldGained > 0) {
           let totalSold = 0;
@@ -108,7 +109,7 @@ export function handleBuildingUsage(
         } else {
           result.failedActions.push({
             action: "market",
-            reason: `Need at least ${GameSettings.MARKET_EXCHANGE_RATE} resources to sell`
+            reason: `Need at least ${marketRate} resources to sell`
           });
         }
       } else {

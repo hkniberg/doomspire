@@ -1,5 +1,5 @@
 import { GameState } from "@/game/GameState";
-import { CarriableItem, Champion, Decision, DecisionContext, DecisionOption, Player, Position, ResourceType, Tile } from "@/lib/types";
+import { CarriableItem, Champion, Decision, DecisionContext, DecisionOption, FateEffects, Player, Position, ResourceType, Tile } from "@/lib/types";
 import { GameSettings } from "@/lib/GameSettings";
 
 export interface Direction {
@@ -216,13 +216,33 @@ export function championHasTraderItem(champion: Champion, itemId: string): boole
 }
 
 /**
+ * Check if a specific champion has a follower
+ */
+export function championHasFollower(champion: Champion, followerId: string): boolean {
+  return champion.followers.some((follower) => follower.id === followerId);
+}
+
+/**
  * Calculate the item carrying capacity for a champion (in slots)
- * Base capacity is 2, backpack adds 2 more (total 4 including the backpack itself)
+ * Base capacity is 2, backpack adds 2 more (total 4 including the backpack itself),
+ * the Abandoned Mule follower carries 2 more
  */
 export function getChampionItemCapacity(champion: Champion): number {
   const baseCapacity = 2;
-  const hasBackpack = championHasTraderItem(champion, "backpack");
-  return hasBackpack ? baseCapacity + 2 : baseCapacity;
+  const backpackBonus = championHasTraderItem(champion, "backpack") ? 2 : 0;
+  const muleBonus = championHasFollower(champion, "abandoned-mule") ? 2 : 0;
+  return baseCapacity + backpackBonus + muleBonus;
+}
+
+/**
+ * Movement budget (max steps) for a champion movement using the given dice.
+ * The Abandoned Mule follower caps each die at 2 steps; the Tailwind fate card
+ * adds +1 step per movement (once per movement, even when sprinting with multiple dice).
+ */
+export function getChampionMovementBudget(champion: Champion, diceValues: number[], fateEffects: FateEffects): number {
+  const hasMule = championHasFollower(champion, "abandoned-mule");
+  const diceTotal = diceValues.reduce((sum, value) => sum + (hasMule ? Math.min(value, 2) : value), 0);
+  return diceTotal + (fateEffects.knightMovementBonus || 0);
 }
 
 /**

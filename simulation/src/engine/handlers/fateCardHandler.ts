@@ -1,4 +1,5 @@
 import { FateCard } from "@/content/fateCards";
+import { getMonsterCardById } from "@/content/monsterCards";
 import { GameState } from "@/game/GameState";
 import { GameSettings } from "@/lib/GameSettings";
 import { DecisionContext, DecisionOption, GameLogEntry, Player, Position, ResourceType, TileType } from "@/lib/types";
@@ -348,6 +349,89 @@ export async function resolveFateCard(
       break;
     }
 
+    case "prosperous-crops": {
+      gameState.fateEffects.noDiceTax = true;
+      logFn("fate", `Prosperous Crops: no dice tax this round - all dice beyond the first ${GameSettings.FREE_DICE_COUNT} are free.`);
+      break;
+    }
+
+    case "lean-times": {
+      gameState.fateEffects.diceTaxPerDie = 3;
+      logFn("fate", `Lean Times: the dice tax is 3 food per extra die this round (instead of ${GameSettings.DICE_TAX_FOOD_PER_DIE}).`);
+      break;
+    }
+
+    case "trade-boom": {
+      gameState.fateEffects.marketRate1to1 = true;
+      logFn("fate", `Trade Boom: all Markets sell resources at 1:1 instead of 2:1 this round.`);
+      break;
+    }
+
+    case "dragon-gifts": {
+      // Ranked payout by fame: most fame = 3 resources, second most = 2, everyone else = 1.
+      // Tied players share the higher reward, so ranks are based on distinct fame levels.
+      const fameLevels = [...new Set(players.map((p) => p.fame))].sort((a, b) => b - a);
+      for (const player of players) {
+        const rank = fameLevels.indexOf(player.fame);
+        const amount = rank === 0 ? 3 : rank === 1 ? 2 : 1;
+        logFn("fate", `Dragon Gifts: ${player.name} (fame ${player.fame}) receives ${amount} resource(s)`);
+        for (let i = 0; i < amount; i++) {
+          const type = await chooseResourceToGain(ctx, player, `Dragon Gifts: choose resource ${i + 1} of ${amount} to gain.`);
+          player.resources[type] += 1;
+          logFn("fate", `${player.name} gains 1 ${type}`);
+        }
+      }
+      break;
+    }
+
+    case "beasts-are-stirring": {
+      // In turn order, each player may place a beast on an empty den:
+      // a wolf on a wolf den, a bear on a bear cave. Dens occupied by a knight are skipped,
+      // since placing a monster under a knight would bypass normal arrival combat.
+      const isDenOccupiedByKnight = (position: Position): boolean =>
+        players.some((p) => p.champions.some((c) => c.position.row === position.row && c.position.col === position.col));
+
+      for (const player of players) {
+        const emptyDens = gameState.board.findTiles(
+          (tile) =>
+            (tile.tileType === "wolfDen" || tile.tileType === "bearCave") &&
+            !tile.monster &&
+            !isDenOccupiedByKnight(tile.position)
+        );
+        if (emptyDens.length === 0) {
+          logFn("fate", `Beasts Are Stirring: no empty dens remain - nothing happens for ${player.name}`);
+          continue;
+        }
+        const options: DecisionOption[] = [
+          { id: "decline", description: "Do not place a beast" },
+          ...emptyDens.map((tile) => ({
+            id: `${tile.position.row},${tile.position.col}`,
+            description: `Place a ${tile.tileType === "wolfDen" ? "wolf on the wolf den" : "bear on the bear cave"} at (${tile.position.row}, ${tile.position.col})`
+          }))
+        ];
+        const choice = await askDecision(
+          ctx,
+          player.name,
+          `Beasts Are Stirring: you may place a beast on an empty den (a wolf in the flatlands, a bear in the hills), or decline.`,
+          options
+        );
+        if (choice === "decline") {
+          logFn("fate", `Beasts Are Stirring: ${player.name} declines to place a beast`);
+          continue;
+        }
+        const [row, col] = choice.split(",").map(Number);
+        const denTile = gameState.getTile({ row, col });
+        if (denTile && !denTile.monster) {
+          const monsterCard = getMonsterCardById(denTile.tileType === "wolfDen" ? "wolf" : "bear");
+          if (monsterCard) {
+            denTile.monster = monsterCard;
+            logFn("fate", `Beasts Are Stirring: ${player.name} places a ${monsterCard.name} on the den at (${row}, ${col})`);
+          }
+        }
+      }
+      break;
+    }
+
     // ============ Minor cards ============
 
     case "favorable-winds": {
@@ -380,6 +464,30 @@ export async function resolveFateCard(
         lucky.resources[type] += 1;
       }
       logFn("fate", `Fortune Smiles: ${lucky.name} (fewest total resources) gains 3 resources of their choice.`);
+      break;
+    }
+
+    case "tailwind": {
+      gameState.fateEffects.knightMovementBonus = 1;
+      logFn("fate", `Tailwind: each knight movement gets +1 step this round (once per movement, even when sprinting).`);
+      break;
+    }
+
+    case "bounty": {
+      gameState.fateEffects.monsterFameBonus = 1;
+      logFn("fate", `Bounty: defeating a monster grants +1 fame this round.`);
+      break;
+    }
+
+    case "homesteading": {
+      gameState.fateEffects.claimFameBonus = 1;
+      logFn("fate", `Homesteading: claiming a resource tile grants +1 fame this round.`);
+      break;
+    }
+
+    case "cartographers-prize": {
+      gameState.fateEffects.explorationFameBonus = 1;
+      logFn("fate", `Cartographer's Prize: exploring a tile grants +1 extra fame this round.`);
       break;
     }
 
@@ -554,6 +662,15 @@ export async function resolveFateCard(
       if (target) {
         gameState.fateEffects.dicePenaltyPlayer = target.name;
         logFn("fate", `Penalty: ${target.name} rolls one fewer die this round (minimum 1)`);
+      }
+      break;
+    }
+
+    case "royal-honor": {
+      const target = await councilVoteTarget(ctx, "Who should be honored with 2 fame?");
+      if (target) {
+        target.fame += 2;
+        logFn("fate", `Royal Honor: ${target.name} gains 2 fame (now ${target.fame})`);
       }
       break;
     }

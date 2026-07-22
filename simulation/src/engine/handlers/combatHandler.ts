@@ -895,7 +895,8 @@ export async function resolveImmediateCombat(
 
   if (championWins) {
     // Champion won - award fame and resources (monster not placed on board)
-    const fameAwarded = monster.fame || 0;
+    // Bounty fate card: extra fame per monster defeated this round
+    const fameAwarded = (monster.fame || 0) + (gameState.fateEffects.monsterFameBonus || 0);
     player.fame += fameAwarded;
     player.resources.food += monster.resources.food;
     player.resources.wood += monster.resources.wood;
@@ -991,7 +992,8 @@ export async function resolveChampionVsMonsterCombat(
 
   if (championWins) {
     // Champion won - award fame and resources, remove monster
-    const fameAwarded = monster.fame || 0;
+    // Bounty fate card: extra fame per monster defeated this round
+    const fameAwarded = (monster.fame || 0) + (gameState.fateEffects.monsterFameBonus || 0);
     player.fame += fameAwarded;
     player.resources.food += monster.resources.food;
     player.resources.wood += monster.resources.wood;

@@ -95,7 +95,7 @@ export default function GameSimulation() {
           case "a":
           case "d":
             event.preventDefault();
-            movementAndDice.handleWASDMovement(event.key);
+            movementAndDice.handleWASDMovement(event.key, gameSession.gameState || undefined);
             break;
           case "enter":
             // Complete the movement (like Done button)

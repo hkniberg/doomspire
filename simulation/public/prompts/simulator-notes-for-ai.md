@@ -35,5 +35,7 @@ involves free-form negotiation and table talk that the simulator does not suppor
   how to distribute a payment, the simulator distributes it automatically (round-robin among the other
   players). Land Reform's recipient is the player with the fewest resource tiles.
 - **A knight cannot enter a tile containing one of your own knights**, not even to pass through.
+- **Beasts Are Stirring**: a den occupied by a knight does not count as an empty den, so no beast
+  can be placed there.
 - **Impressing the dragon while already impressed this round**: if your knight is at Doomspire but you
   have already impressed the dragon this round, nothing happens (the dragon dozes; your knight may stay).

@@ -84,8 +84,8 @@ export function handleExploration(
   // Mark tile as explored (only this tile - each tile is flipped individually)
   tile.explored = true;
 
-  // Award fame for exploration
-  const fameAwarded = GameSettings.FAME_AWARD_FOR_EXPLORATION;
+  // Award fame for exploration (Cartographer's Prize fate card grants extra fame this round)
+  const fameAwarded = GameSettings.FAME_AWARD_FOR_EXPLORATION + (gameState.fateEffects.explorationFameBonus || 0);
   player.fame += fameAwarded;
 
   logFn("exploration", `Explored new territory and got ${fameAwarded} fame`);
@@ -246,6 +246,14 @@ export function handleTileClaiming(
   // Successful claim
   tile.claimedBy = player.name;
   logFn("event", `Champion${championId} claimed resource tile (${tile.position.row}, ${tile.position.col}), which can provide ${formatResources(tile.resources)}`);
+
+  // Homesteading fate card: claiming a resource tile grants extra fame this round.
+  // Only peaceful claims count, not conquest/bribery takeovers.
+  const claimFameBonus = gameState.fateEffects.claimFameBonus || 0;
+  if (claimFameBonus > 0) {
+    player.fame += claimFameBonus;
+    logFn("event", `Homesteading: ${player.name} gains ${claimFameBonus} fame for claiming a resource tile`);
+  }
 }
 
 /**

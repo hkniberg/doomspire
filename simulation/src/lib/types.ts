@@ -263,6 +263,13 @@ export interface FateEffects {
   dragonMightModifier?: number; // Dragon Sleeping (-2)
   dragonCombatImpressionOnly?: boolean; // Dragon Sleeping: only combat impresses
   dragonAbsent?: boolean; // Dragon Off Hunting
+  noDiceTax?: boolean; // Prosperous Crops: all dice beyond the free ones cost nothing
+  diceTaxPerDie?: number; // Lean Times: overrides GameSettings.DICE_TAX_FOOD_PER_DIE (3)
+  marketRate1to1?: boolean; // Trade Boom: markets sell at 1:1 instead of 2:1
+  monsterFameBonus?: number; // Bounty: extra fame per monster defeated
+  claimFameBonus?: number; // Homesteading: extra fame per resource tile claimed
+  explorationFameBonus?: number; // Cartographer's Prize: extra fame per tile explored
+  knightMovementBonus?: number; // Tailwind: +1 step per knight movement (once per movement, even when sprinting)
 }
 
 /**

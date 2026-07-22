@@ -44,7 +44,6 @@ export const ENCOUNTERS: Encounter[] = [
     theme: "cave",
   },
   {
-    disabled: true,
     id: "abandoned-mule",
     name: "Abandoned Mule",
     tier: 1,
@@ -98,7 +97,6 @@ export const ENCOUNTERS: Encounter[] = [
 
   // Tier 3 Encounter Cards
   {
-    disabled: true,
     id: "wandering-monk",
     name: "Wandering monk",
     tier: 3,

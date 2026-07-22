@@ -17,6 +17,7 @@ import { GameState } from "../game/GameState";
 import { stringifyTileForGameLog } from "../game/gameStateStringifier";
 import { CARDS, GameDecks } from "../lib/cards";
 import { PlayerAgent } from "../players/PlayerAgent";
+import { getChampionMovementBudget } from "../players/PlayerUtils";
 import { RandomPlayerAgent } from "../players/RandomPlayerAgent";
 import { calculateHarvest, getEligibleHarvestTiles } from "./actions/harvestCalculator";
 import { calculateBoatMove, calculateChampionMove } from "./actions/moveCalculator";
@@ -209,8 +210,10 @@ export class GameMaster {
     this.playerDice.clear();
     this.savedHarvestDice.clear();
 
-    const taxPerDie = GameSettings.DICE_TAX_FOOD_PER_DIE * foodTaxMultiplier;
-    if (foodTaxMultiplier > 1) {
+    // Fate cards can change the dice tax: Prosperous Crops removes it, Lean Times raises it to 3
+    const baseTaxPerDie = this.gameState.fateEffects.diceTaxPerDie ?? GameSettings.DICE_TAX_FOOD_PER_DIE;
+    const taxPerDie = this.gameState.fateEffects.noDiceTax ? 0 : baseTaxPerDie * foodTaxMultiplier;
+    if (foodTaxMultiplier > 1 && taxPerDie > 0) {
       this.addGameLogEntry("system", `Food tax is doubled this round (${taxPerDie} food per extra die)`);
     }
 
@@ -732,8 +735,11 @@ export class GameMaster {
     // Handle movement if a path is provided
     let endPosition = startPosition;
     if (isMoving) {
-      // Execute the movement calculation (sprinting: multiple dice values add up)
-      const moveResult = calculateChampionMove(this.gameState, player.name, action.movementPathIncludingStartPosition!, totalDiceValue);
+      // Execute the movement calculation (sprinting: multiple dice values add up).
+      // The budget accounts for the Tailwind fate card (+1 step per movement) and the
+      // Abandoned Mule follower (max 2 steps per die).
+      const movementBudget = getChampionMovementBudget(champion, diceValues, this.gameState.fateEffects);
+      const moveResult = calculateChampionMove(this.gameState, player.name, action.movementPathIncludingStartPosition!, movementBudget);
 
       // Pass-through blocking: an opposing player may force a passing knight to stop and fight
       const blockedPosition = await this.checkPassThroughBlocking(

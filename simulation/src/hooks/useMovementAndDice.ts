@@ -3,6 +3,7 @@ import { Tile } from "../lib/types";
 import { GameState } from "../game/GameState";
 import { DiceAction, TileAction } from "../lib/actionTypes";
 import { hasAnyTileActions } from "../components/TileActionModal";
+import { getChampionMovementBudget } from "../players/PlayerUtils";
 
 interface UseMovementAndDiceReturn {
   selectedChampionId: number | null;
@@ -39,7 +40,7 @@ interface UseMovementAndDiceReturn {
   handleMovementDone: (gameState?: GameState, resolver?: (action: DiceAction) => void, onAllDiceUsed?: () => void) => void;
   handleTileActionConfirm: (tileAction: TileAction, resolver?: (action: DiceAction) => void) => void;
   handleTileActionCancel: () => void;
-  handleWASDMovement: (key: string) => void;
+  handleWASDMovement: (key: string, gameState?: GameState) => void;
   handleSaveDieForHarvest: (resolver?: (action: DiceAction) => void, onAllDiceUsed?: () => void) => void;
 }
 
@@ -214,7 +215,7 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
     // Don't reset other state - let player continue moving or cancel movement manually
   }, []);
 
-  const handleWASDMovement = useCallback((key: string) => {
+  const handleWASDMovement = useCallback((key: string, gameState?: GameState) => {
     if (championMovementPath.length === 0 || selectedDieIndex === null) {
       return;
     }
@@ -257,14 +258,21 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
         // Backtracking: truncate path to this position
         setChampionMovementPath(championMovementPath.slice(0, existingIndex + 1));
       } else {
-        // Check if we can move forward (dice value restriction)
+        // Check if we can move forward (dice value restriction).
+        // The budget accounts for Tailwind (+1 step) and the Abandoned Mule (max 2 steps per die).
         const selectedDieValue = diceValues[selectedDieIndex];
+        const champion = gameState && selectedChampionId !== null
+          ? gameState.getChampion(gameState.getCurrentPlayer().name, selectedChampionId)
+          : undefined;
+        const movementBudget = champion && gameState
+          ? getChampionMovementBudget(champion, [selectedDieValue], gameState.fateEffects)
+          : selectedDieValue;
         const currentPathLength = championMovementPath.length - 1; // Subtract 1 because first position is starting position
 
-        if (currentPathLength >= selectedDieValue) {
+        if (currentPathLength >= movementBudget) {
           console.log(
-            "❌ Cannot move further - dice value limit reached:",
-            selectedDieValue,
+            "❌ Cannot move further - movement budget reached:",
+            movementBudget,
             "steps already taken:",
             currentPathLength,
           );
@@ -283,7 +291,7 @@ export function useMovementAndDice(): UseMovementAndDiceReturn {
         setChampionMovementPath([...championMovementPath, newPos]);
       }
     }
-  }, [championMovementPath, selectedDieIndex, diceValues]);
+  }, [championMovementPath, selectedDieIndex, diceValues, selectedChampionId]);
 
   // Save the selected die for the harvest phase (which tiles to harvest is decided then)
   const handleSaveDieForHarvest = useCallback((resolver?: (action: DiceAction) => void, onAllDiceUsed?: () => void) => {
