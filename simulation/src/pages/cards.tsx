@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRouter } from "next/router";
 import {
   CardComponent,
   formatEncounterContent,
@@ -9,8 +9,10 @@ import {
   getBorderColor,
   getMonsterTypeTag,
 } from "../components/cards/Card";
+import { FateCardDisplay } from "../components/cards/FateCard";
 import { ENCOUNTERS } from "../content/encounterCards";
 import { EVENT_CARDS } from "../content/eventCards";
+import { FATE_CARDS } from "../content/fateCards";
 import { MONSTER_CARDS } from "../content/monsterCards";
 import { TRADER_ITEMS } from "../content/traderItems";
 import { TREASURE_CARDS } from "../content/treasureCards";
@@ -18,6 +20,18 @@ import { ALL_CARDS, ALL_TRADER_CARDS, Card, CardType } from "../lib/cards";
 
 // Extended card type that includes trader cards and the original card data for rendering
 type ExtendedCardType = CardType | "trader";
+// Fate cards are rendered in their own section since they use a different (landscape) layout
+type TypeFilter = ExtendedCardType | "fate" | "all";
+
+const TYPE_FILTER_VALUES: TypeFilter[] = ["all", "monster", "event", "treasure", "encounter", "trader", "fate"];
+
+function parseTypeFilter(value: string | string[] | undefined): TypeFilter {
+  return typeof value === "string" && TYPE_FILTER_VALUES.includes(value as TypeFilter) ? (value as TypeFilter) : "all";
+}
+
+function parseTierFilter(value: string | string[] | undefined): number | "all" {
+  return value === "1" || value === "2" || value === "3" ? parseInt(value) : "all";
+}
 type ExtendedCard = (
   | Card
   | {
@@ -30,10 +44,28 @@ type ExtendedCard = (
 };
 
 export default function CardsPage() {
-  const [compactMode, setCompactMode] = useState(false);
-  const [hideDuplicates, setHideDuplicates] = useState(false);
-  const [cardTypeFilter, setCardTypeFilter] = useState<ExtendedCardType | "all">("all");
-  const [tierFilter, setTierFilter] = useState<number | "all">("all");
+  const router = useRouter();
+
+  // All filter state lives in the URL so views can be bookmarked and shared
+  const compactMode = router.query.compact === "1";
+  const hideDuplicates = router.query.unique === "1";
+  const cardTypeFilter = parseTypeFilter(router.query.type);
+  const tierFilter = parseTierFilter(router.query.tier);
+
+  const updateQuery = (updates: Record<string, string | undefined>) => {
+    const query: Record<string, string> = {};
+    for (const [key, value] of Object.entries({ ...router.query, ...updates })) {
+      if (typeof value === "string" && value !== "") {
+        query[key] = value;
+      }
+    }
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  };
+
+  const setCardTypeFilter = (value: TypeFilter) => updateQuery({ type: value === "all" ? undefined : value });
+  const setTierFilter = (value: number | "all") => updateQuery({ tier: value === "all" ? undefined : String(value) });
+  const setHideDuplicates = (value: boolean) => updateQuery({ unique: value ? "1" : undefined });
+  const setCompactMode = (value: boolean) => updateQuery({ compact: value ? "1" : undefined });
 
   // Create extended card array by looking up original data
   const allCards: ExtendedCard[] = [
@@ -91,12 +123,16 @@ export default function CardsPage() {
     });
   }
 
-  // Filter cards based on selected filters
+  // Filter cards based on selected filters (fate cards are handled separately below)
   const filteredCards = cardsToShow.filter((card) => {
     const matchesType = cardTypeFilter === "all" || card.type === cardTypeFilter;
     const matchesTier = tierFilter === "all" || card.tier === tierFilter;
-    return matchesType && matchesTier;
+    return cardTypeFilter !== "fate" && matchesType && matchesTier;
   });
+
+  // Fate cards have no tier, so hide them when a tier filter is active
+  // (unless the fate type is explicitly selected, in which case the tier filter is ignored)
+  const showFateCards = cardTypeFilter === "fate" || (cardTypeFilter === "all" && tierFilter === "all");
 
   const renderCard = (card: ExtendedCard) => {
     if (!card.originalData) {
@@ -203,7 +239,7 @@ export default function CardsPage() {
           <label style={{ fontWeight: "bold", color: "#333" }}>Card Type:</label>
           <select
             value={cardTypeFilter}
-            onChange={(e) => setCardTypeFilter(e.target.value as ExtendedCardType | "all")}
+            onChange={(e) => setCardTypeFilter(e.target.value as TypeFilter)}
             style={{
               padding: "8px 12px",
               borderRadius: "6px",
@@ -218,6 +254,7 @@ export default function CardsPage() {
             <option value="treasure">Treasures</option>
             <option value="encounter">Encounters</option>
             <option value="trader">Traders</option>
+            <option value="fate">Fate</option>
           </select>
         </div>
 
@@ -289,6 +326,7 @@ export default function CardsPage() {
       {/* Results Count */}
       <div style={{ textAlign: "center", marginBottom: "20px", color: "#666" }}>
         Showing {filteredCards.length} of {cardsToShow.length} cards
+        {showFateCards && ` + ${FATE_CARDS.length} fate cards`}
         {hideDuplicates && (
           <span style={{ fontSize: "12px", display: "block", marginTop: "4px" }}>
             ({allCards.length - cardsToShow.length} duplicates hidden)
@@ -312,6 +350,35 @@ export default function CardsPage() {
           <div key={card.id}>{renderCard(card)}</div>
         ))}
       </div>
+
+      {/* Fate Cards (landscape layout, so they get their own section using full page width) */}
+      {showFateCards && (
+        <div style={{ margin: "0 auto", padding: "20px" }}>
+          {cardTypeFilter === "all" && (
+            <h2
+              style={{
+                textAlign: "center",
+                color: "#333",
+                marginBottom: "20px",
+              }}
+            >
+              Fate Cards
+            </h2>
+          )}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
+              gap: "30px",
+              justifyItems: "center",
+            }}
+          >
+            {FATE_CARDS.map((card) => (
+              <FateCardDisplay key={card.id} card={card} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Statistics */}
       <div
@@ -360,6 +427,7 @@ export default function CardsPage() {
                 {allCards.filter((c) => c.type === "trader" && !c.originalData.disabled).length} enabled,{" "}
                 {allCards.filter((c) => c.type === "trader" && c.originalData.disabled).length} disabled)
               </div>
+              <div>Fate: {FATE_CARDS.length} cards</div>
             </div>
           </div>
           <div>
