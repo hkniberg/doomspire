@@ -11,7 +11,7 @@ import { extractLastJsonObject } from "./jsonExtraction";
 export const CLAUDE_MODELS = {
   haiku: "claude-haiku-4-5",
   sonnet: "claude-sonnet-5",
-  opus: "claude-opus-4-8",
+  opus: "claude-opus-5",
   fable: "claude-fable-5",
 } as const;
 
@@ -21,7 +21,7 @@ export const DEFAULT_CLAUDE_MODEL: ClaudeModel = "sonnet";
 
 const DEFAULT_RESPONSE_TOKENS = 10000;
 // Haiku 4.5 does not support adaptive thinking (400 error); it uses manual extended
-// thinking with a fixed token budget instead. Sonnet 5, Opus 4.8, and Fable 5 all use
+// thinking with a fixed token budget instead. Sonnet 5, Opus 5, and Fable 5 all use
 // adaptive thinking (and reject manual budgets with a 400 error).
 const HAIKU_THINKING_BUDGET_TOKENS = 8000;
 // Adaptive thinking tokens count toward max_tokens, so reserve headroom on top of the
@@ -59,7 +59,7 @@ export class Claude {
   /**
    * Send a user message and get either a structured JSON response (if schema provided) or plain text response
    *
-   * Note: Sonnet 5, Opus 4.8, and Fable 5 use adaptive thinking; manual thinking budgets
+   * Note: Sonnet 5, Opus 5, and Fable 5 use adaptive thinking; manual thinking budgets
    * are rejected with a 400 error on those models. Haiku 4.5 is the opposite: it only
    * supports manual extended thinking with a fixed budget. The thinkingTokens parameter
    * is kept for call-site compatibility but is ignored (a fixed budget is used for Haiku).
