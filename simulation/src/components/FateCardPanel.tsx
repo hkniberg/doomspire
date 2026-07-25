@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { GameMaster } from "../engine/GameMaster";
+import { FateCard } from "../content/fateCards";
 import { FATE_CARD_HEIGHT, FATE_CARD_WIDTH, FateCardDisplay } from "./cards/FateCard";
 
 interface FateCardPanelProps {
-  gameSession: GameMaster | null;
+  fateCard: FateCard | null;
 }
 
 const SCALE = 0.5;
@@ -11,7 +11,7 @@ const SCALE = 0.5;
 /**
  * Shows the fate card drawn for the current round (scaled down, click to enlarge).
  */
-export const FateCardPanel = ({ gameSession }: FateCardPanelProps) => {
+export const FateCardPanel = ({ fateCard }: FateCardPanelProps) => {
   const [isEnlarged, setIsEnlarged] = useState(false);
 
   // Close enlarged view on ESC key press
@@ -29,7 +29,6 @@ export const FateCardPanel = ({ gameSession }: FateCardPanelProps) => {
     };
   }, [isEnlarged]);
 
-  const fateCard = gameSession?.getCurrentFateCard();
   if (!fateCard) {
     return null;
   }

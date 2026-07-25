@@ -3,6 +3,7 @@
 import * as dotenv from "dotenv";
 import * as fs from "fs/promises";
 import * as path from "path";
+import * as zlib from "zlib";
 import { GameMaster, GameMasterConfig } from "../engine/GameMaster";
 import { FileLoader } from "../lib/templateProcessor";
 import { Claude, CLAUDE_MODELS, ClaudeModel, DEFAULT_CLAUDE_MODEL } from "../llm/claude";
@@ -80,6 +81,12 @@ export class CLIRunner {
       } else {
         console.log(`📊 No statistics data available to save`);
       }
+
+      // Save the full match recording (gzipped JSON, loadable in the UI via "Load Match")
+      const recording = gameMaster.getRecording();
+      const recordingFilename = path.join(gamelogsDir, `${baseFilename}-recording.json.gz`);
+      await fs.writeFile(recordingFilename, zlib.gzipSync(JSON.stringify(recording)));
+      console.log(`🎬 Match recording saved to: gamelogs/${baseFilename}-recording.json.gz`);
     } catch (error) {
       console.error(`❌ Failed to save game files: ${error}`);
     }

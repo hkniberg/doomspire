@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiKeyModal } from "../components/ApiKeyModal";
 import { CardDecks } from "../components/CardDecks";
 import { ControlPanel } from "../components/ControlPanel";
@@ -10,6 +10,7 @@ import { GameStatus } from "../components/GameStatus";
 import DicePanel from "../components/DicePanel";
 import { HumanPlayerModal } from "../components/HumanPlayerModal";
 import HumanPlayerStatus from "../components/HumanPlayerStatus";
+import { ReplayControls } from "../components/ReplayControls";
 import { TraderModal } from "../components/TraderModal";
 import { BuildingModal } from "../components/BuildingModal";
 import { PlayerConfigurationPanel } from "../components/PlayerConfigurationPanel";
@@ -17,6 +18,7 @@ import { SettingsMenu } from "../components/SettingsMenu";
 import { StatisticsView } from "../components/StatisticsView";
 import { TileActionModal } from "../components/TileActionModal";
 import { TokenUsage } from "../components/TokenUsage";
+import { GameState } from "../game/GameState";
 import { stringifyGameState } from "../game/gameStateStringifier";
 import { useGameSession } from "../hooks/useGameSession";
 import { useGameSetup } from "../hooks/useGameSetup";
@@ -24,6 +26,7 @@ import { useHumanPlayer } from "../hooks/useHumanPlayer";
 import { useMovementAndDice } from "../hooks/useMovementAndDice";
 import { useTraderModal } from "../hooks/useTraderModal";
 import { useBuildingModal } from "../hooks/useBuildingModal";
+import { downloadRecording, readRecordingFromFile } from "../lib/matchRecordingIO";
 
 // Simple spinner for loading states (used only in main component now)
 const Spinner = ({ size = 20 }: { size?: number }) => (
@@ -69,6 +72,30 @@ export default function GameSimulation() {
   const movementAndDice = useMovementAndDice();
   const traderModal = useTraderModal();
   const buildingModal = useBuildingModal();
+
+  // Replay state: when replayIndex is set (or a recording is loaded), the board,
+  // status, fate card, and log render from the selected snapshot instead of the live state
+  const { snapshots, replayIndex } = gameSession;
+  const replaySnapshot = useMemo(() => {
+    if (replayIndex === null || snapshots.length === 0) {
+      return null;
+    }
+    return snapshots[Math.max(0, Math.min(replayIndex, snapshots.length - 1))];
+  }, [replayIndex, snapshots]);
+
+  const replayGameState = useMemo(
+    () => (replaySnapshot ? GameState.fromJSON(replaySnapshot.gameState) : null),
+    [replaySnapshot],
+  );
+
+  const isReplaying = replayGameState !== null;
+  const displayedGameState = replayGameState ?? gameSession.gameState;
+  const displayedGameLog = replaySnapshot
+    ? gameSession.actionLog.slice(0, replaySnapshot.logLength)
+    : gameSession.actionLog;
+  const displayedFateCard = replaySnapshot
+    ? replaySnapshot.currentFateCard
+    : (gameSession.gameSession?.getCurrentFateCard() ?? null);
 
   // Initialize component only on client side
   useEffect(() => {
@@ -203,12 +230,14 @@ export default function GameSimulation() {
   };
 
   const handleStartNewGame = async () => {
+    gameSession.setReplayIndex(null);
     await gameSetup.startNewGame(
       gameSession.setGameSession,
       gameSession.setGameState,
       gameSession.setSimulationState,
       gameSession.setActionLog,
       gameSession.setStatistics,
+      gameSession.setSnapshots,
       setCurrentView,
       gameSession.setAutoPlay,
       {
@@ -218,6 +247,39 @@ export default function GameSimulation() {
         onHarvestDecisionNeeded: buildingModal.openBuildingModal,
       },
     );
+  };
+
+  const handleSaveMatch = async () => {
+    if (!gameSession.gameSession) {
+      return;
+    }
+    try {
+      await downloadRecording(gameSession.gameSession.getRecording());
+    } catch (error) {
+      console.error("Failed to save match:", error);
+      alert(`Failed to save match: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleLoadMatch = async (file: File) => {
+    try {
+      const recording = await readRecordingFromFile(file);
+      gameSession.loadRecording(recording);
+      setCurrentView("game");
+      setShowActionLog(true);
+    } catch (error) {
+      console.error("Failed to load match:", error);
+      alert(`Failed to load match: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  // Jump the replay to the first snapshot that includes the clicked log entry
+  const handleLogEntryClick = (entryIndex: number) => {
+    if (snapshots.length === 0) {
+      return;
+    }
+    const snapshotIndex = snapshots.findIndex((snapshot) => snapshot.logLength > entryIndex);
+    gameSession.setReplayIndex(snapshotIndex === -1 ? snapshots.length - 1 : snapshotIndex);
   };
 
   const toggleAutoPlay = () => {
@@ -246,13 +308,13 @@ export default function GameSimulation() {
   };
 
   const handleCopyGamestate = async () => {
-    if (!gameSession.gameState) {
+    if (!displayedGameState) {
       alert("No game state available to copy");
       return;
     }
 
     try {
-      const gamestateText = stringifyGameState(gameSession.gameState);
+      const gamestateText = stringifyGameState(displayedGameState);
       await navigator.clipboard.writeText(gamestateText);
       setCopyGamestateSuccess(true);
       setTimeout(() => setCopyGamestateSuccess(false), 2000); // Hide success message after 2 seconds
@@ -321,7 +383,9 @@ export default function GameSimulation() {
 
           <div style={{ display: "flex", gap: "15px", alignItems: "center", flexWrap: "wrap" }}>
             {/* View Switching Buttons - Only show when game is active */}
-            {(gameSession.simulationState === "playing" || gameSession.simulationState === "finished") && (
+            {(gameSession.simulationState === "playing" ||
+              gameSession.simulationState === "finished" ||
+              gameSession.simulationState === "replay") && (
               <div style={{ display: "flex", gap: "5px" }}>
                 <button
                   onClick={() => setCurrentView("game")}
@@ -497,7 +561,7 @@ export default function GameSimulation() {
             )}
 
             {/* Copy Gamestate Button */}
-            {gameSession.gameState && (
+            {displayedGameState && (
               <button
                 onClick={handleCopyGamestate}
                 style={{
@@ -561,29 +625,45 @@ export default function GameSimulation() {
           onSetAutoPlaySpeed={gameSession.setAutoPlaySpeed}
           onResetGame={gameSession.resetGame}
           onToggleActionLog={() => setShowActionLog(!showActionLog)}
+          onSaveMatch={handleSaveMatch}
+          onLoadMatch={handleLoadMatch}
         />
 
         {/* Conditional View Rendering */}
         {currentView === "game" ? (
           <>
             {/* Game Status */}
-            {gameSession.gameState && (
+            {displayedGameState && (
               <GameStatus
-                gameState={gameSession.gameState}
+                gameState={displayedGameState}
                 simulationState={gameSession.simulationState}
                 actionLogLength={gameSession.actionLog.length}
               />
             )}
 
+            {/* Replay Controls - step back and forth through recorded snapshots */}
+            {snapshots.length > 0 && (
+              <div style={{ marginTop: "10px" }}>
+                <ReplayControls
+                  snapshots={snapshots}
+                  replayIndex={replayIndex}
+                  onReplayIndexChange={gameSession.setReplayIndex}
+                  allowLive={gameSession.simulationState !== "replay"}
+                />
+              </div>
+            )}
+
             {/* Action Log */}
             <GameLog
-              gameLog={gameSession.actionLog}
+              gameLog={displayedGameLog}
               isVisible={showActionLog}
-              players={gameSession.gameState?.players || []}
+              players={displayedGameState?.players || []}
+              onEntryClick={snapshots.length > 0 ? handleLogEntryClick : undefined}
+              autoScrollToBottom={isReplaying}
             />
 
             {/* Dice Panel and Card Decks Row */}
-            {gameSession.gameState && (
+            {displayedGameState && (
               <div
                 style={{
                   marginTop: "20px",
@@ -644,7 +724,7 @@ export default function GameSimulation() {
                 )}
 
                 {/* Current Fate Card */}
-                <FateCardPanel gameSession={gameSession.gameSession} />
+                <FateCardPanel fateCard={displayedFateCard} />
 
                 {/* Card Decks - Right Side */}
                 <div style={{ flex: 1 }}>
@@ -653,23 +733,27 @@ export default function GameSimulation() {
               </div>
             )}
 
-            {/* Game Board */}
-            {gameSession.gameState ? (
+            {/* Game Board (view-only while replaying: no dragging, no human interaction, no state updates) */}
+            {displayedGameState ? (
               <GameBoard
-                gameState={gameSession.gameState}
+                gameState={displayedGameState}
                 debugMode={debugMode}
-                allowDragging={allowDragging}
-                playerConfigs={gameSetup.playerConfigs}
+                allowDragging={isReplaying ? false : allowDragging}
+                playerConfigs={gameSession.simulationState === "replay" ? undefined : gameSetup.playerConfigs}
                 claudeTokenTrackers={gameSetup.claudeTokenTrackers}
-                onExtraInstructionsChange={handleExtraInstructionsChange}
-                onGameStateUpdate={(newGameState) => {
-                  gameSession.setGameState(newGameState);
-                  if (gameSession.gameSession) {
-                    gameSession.gameSession.updateGameState(newGameState);
-                  }
-                }}
+                onExtraInstructionsChange={isReplaying ? undefined : handleExtraInstructionsChange}
+                onGameStateUpdate={
+                  isReplaying
+                    ? undefined
+                    : (newGameState) => {
+                        gameSession.setGameState(newGameState);
+                        if (gameSession.gameSession) {
+                          gameSession.gameSession.updateGameState(newGameState);
+                        }
+                      }
+                }
                 humanPlayerState={
-                  humanPlayer.humanDiceActionContext
+                  !isReplaying && humanPlayer.humanDiceActionContext
                     ? {
                         selectedChampionId: movementAndDice.selectedChampionId,
                         championMovementPath: movementAndDice.championMovementPath,

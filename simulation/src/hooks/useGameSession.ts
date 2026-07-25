@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { GameMaster, GameMasterConfig } from "../engine/GameMaster";
 import { GameState } from "../game/GameState";
+import { MatchRecording, MatchSnapshot } from "../lib/replayTypes";
 import { TurnStatistics } from "../lib/types";
 
-type SimulationState = "setup" | "playing" | "finished";
+// "replay" = viewing a loaded match recording (no live GameMaster)
+type SimulationState = "setup" | "playing" | "finished" | "replay";
 
 interface UseGameSessionReturn {
   gameSession: GameMaster | null;
@@ -11,6 +13,8 @@ interface UseGameSessionReturn {
   simulationState: SimulationState;
   actionLog: any[];
   statistics: readonly TurnStatistics[];
+  snapshots: readonly MatchSnapshot[];
+  replayIndex: number | null;
   isExecutingTurn: boolean;
   autoPlay: boolean;
   autoPlaySpeed: number;
@@ -19,9 +23,12 @@ interface UseGameSessionReturn {
   setSimulationState: (state: SimulationState) => void;
   setActionLog: (log: any[]) => void;
   setStatistics: (stats: readonly TurnStatistics[]) => void;
+  setSnapshots: (snapshots: readonly MatchSnapshot[]) => void;
+  setReplayIndex: (index: number | null) => void;
   setAutoPlay: (autoPlay: boolean) => void;
   setAutoPlaySpeed: (speed: number) => void;
   executeNextTurn: () => Promise<void>;
+  loadRecording: (recording: MatchRecording) => void;
   resetGame: () => void;
 }
 
@@ -31,6 +38,8 @@ export function useGameSession(): UseGameSessionReturn {
   const [simulationState, setSimulationState] = useState<SimulationState>("setup");
   const [actionLog, setActionLog] = useState<any[]>([]);
   const [statistics, setStatistics] = useState<readonly TurnStatistics[]>([]);
+  const [snapshots, setSnapshots] = useState<readonly MatchSnapshot[]>([]);
+  const [replayIndex, setReplayIndex] = useState<number | null>(null);
   const [isExecutingTurn, setIsExecutingTurn] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const [autoPlaySpeed, setAutoPlaySpeed] = useState(1000);
@@ -62,6 +71,7 @@ export function useGameSession(): UseGameSessionReturn {
         setGameState(updatedGameState);
         setActionLog(Array.from(updatedGameLog));
         setStatistics(updatedStatistics);
+        setSnapshots(Array.from(gameSession.getSnapshots()));
       };
 
       // Execute turn with step update callback
@@ -75,6 +85,7 @@ export function useGameSession(): UseGameSessionReturn {
       setGameState(updatedGameState);
       setActionLog(Array.from(updatedGameLog));
       setStatistics(updatedStatistics);
+      setSnapshots(Array.from(gameSession.getSnapshots()));
 
       // Check if game is finished
       if (gameSession.getMasterState() === "finished") {
@@ -104,6 +115,20 @@ export function useGameSession(): UseGameSessionReturn {
     setSimulationState("setup");
     setActionLog([]);
     setStatistics([]);
+    setSnapshots([]);
+    setReplayIndex(null);
+    setAutoPlay(false);
+  }, []);
+
+  // Load a saved match recording for viewer-only replay (no live GameMaster)
+  const loadRecording = useCallback((recording: MatchRecording) => {
+    setGameSession(null);
+    setGameState(null);
+    setActionLog(Array.from(recording.gameLog));
+    setStatistics(recording.statistics);
+    setSnapshots(recording.snapshots);
+    setReplayIndex(recording.snapshots.length - 1);
+    setSimulationState("replay");
     setAutoPlay(false);
   }, []);
 
@@ -147,6 +172,8 @@ export function useGameSession(): UseGameSessionReturn {
     simulationState,
     actionLog,
     statistics,
+    snapshots,
+    replayIndex,
     isExecutingTurn,
     autoPlay,
     autoPlaySpeed,
@@ -155,9 +182,12 @@ export function useGameSession(): UseGameSessionReturn {
     setSimulationState,
     setActionLog,
     setStatistics,
+    setSnapshots,
+    setReplayIndex,
     setAutoPlay,
     setAutoPlaySpeed,
     executeNextTurn,
+    loadRecording,
     resetGame,
   };
 }

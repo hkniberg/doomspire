@@ -78,6 +78,7 @@ interface UseGameSetupReturn {
     setSimulationState: (state: "setup" | "playing" | "finished") => void,
     setActionLog: (log: any[]) => void,
     setStatistics: (stats: readonly import("../lib/types").TurnStatistics[]) => void,
+    setSnapshots: (snapshots: readonly import("../lib/replayTypes").MatchSnapshot[]) => void,
     setCurrentView: (view: "game" | "statistics") => void,
     setAutoPlay: (autoPlay: boolean) => void,
     humanPlayerCallbacks?: {
@@ -195,6 +196,7 @@ export function useGameSetup(): UseGameSetupReturn {
     setSimulationState: (state: "setup" | "playing" | "finished") => void,
     setActionLog: (log: any[]) => void,
     setStatistics: (stats: readonly import("../lib/types").TurnStatistics[]) => void,
+    setSnapshots: (snapshots: readonly import("../lib/replayTypes").MatchSnapshot[]) => void,
     setCurrentView: (view: "game" | "statistics") => void,
     setAutoPlay: (autoPlay: boolean) => void,
     humanPlayerCallbacks?: {
@@ -283,6 +285,7 @@ export function useGameSetup(): UseGameSetupReturn {
       setSimulationState("playing");
       setActionLog([]);
       setStatistics([]);
+      setSnapshots(Array.from(session.getSnapshots()));
       setCurrentView("game");
       setAutoPlay(false);
 

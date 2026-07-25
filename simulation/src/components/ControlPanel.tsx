@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 
 // Simple spinner for loading states
 const Spinner = ({ size = 20 }: { size?: number }) => (
@@ -15,7 +15,7 @@ const Spinner = ({ size = 20 }: { size?: number }) => (
   />
 );
 
-type SimulationState = "setup" | "playing" | "finished";
+type SimulationState = "setup" | "playing" | "finished" | "replay";
 
 interface ControlPanelProps {
   simulationState: SimulationState;
@@ -30,6 +30,8 @@ interface ControlPanelProps {
   onSetAutoPlaySpeed: (speed: number) => void;
   onResetGame: () => void;
   onToggleActionLog: () => void;
+  onSaveMatch: () => void;
+  onLoadMatch: (file: File) => void;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -45,7 +47,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onSetAutoPlaySpeed,
   onResetGame,
   onToggleActionLog,
+  onSaveMatch,
+  onLoadMatch,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onLoadMatch(file);
+    }
+    // Reset so the same file can be selected again
+    event.target.value = "";
+  };
+
   return (
     <div
       style={{
@@ -88,6 +103,33 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               "🎮 Start New Game"
             )}
           </button>
+        )}
+
+        {simulationState === "setup" && (
+          <>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#17a2b8",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "16px",
+                cursor: "pointer",
+              }}
+              title="Load a saved match recording and replay it"
+            >
+              Load Match
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".gz,.json,application/gzip,application/json"
+              style={{ display: "none" }}
+              onChange={handleFileSelected}
+            />
+          </>
         )}
 
         {simulationState === "playing" && (
@@ -159,6 +201,24 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         )}
 
         {(simulationState === "playing" || simulationState === "finished") && (
+          <button
+            onClick={onSaveMatch}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              fontSize: "16px",
+              cursor: "pointer",
+            }}
+            title="Save the whole match (board states, log, AI reasoning) to a file for later replay"
+          >
+            Save Match
+          </button>
+        )}
+
+        {(simulationState === "playing" || simulationState === "finished" || simulationState === "replay") && (
           <>
             <button
               onClick={onResetGame}

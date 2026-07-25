@@ -10,6 +10,7 @@
 // first player's move phase of the round, and the harvest phase runs after the last player's move phase.
 
 import { BoatAction, ChampionAction, DiceAction, HarvestDecision, TileAction } from "@/lib/actionTypes";
+import { MatchRecording, MatchSnapshot } from "@/lib/replayTypes";
 import { GameLogEntry, GameLogEntryType, GamePhase, Player, Position, Tile, TurnContext } from "@/lib/types";
 import { formatPosition, formatResources } from "@/lib/utils";
 import { FATE_CARDS, FIRST_FATE_CARD_ID, FateCard } from "@/content/fateCards";
@@ -58,9 +59,11 @@ export class GameMaster {
   private playerAgents: PlayerAgent[];
   private masterState: GameMasterState;
   private maxRounds: number;
+  private seed?: number;
   private gameLog: GameLogEntry[];
   private gameDecks: GameDecks;
   private statisticsCollector: StatisticsCollector;
+  private snapshots: MatchSnapshot[] = []; // Point-in-time snapshots for replay, captured at every step
 
   // Round state
   private roundInitialized: boolean = false;
@@ -78,6 +81,7 @@ export class GameMaster {
     this.playerAgents = config.players;
     this.masterState = "setup";
     this.maxRounds = config.maxRounds || 100; // Default limit to prevent infinite games
+    this.seed = config.seed;
     this.gameLog = [];
     this.gameDecks = new GameDecks(CARDS);
     this.statisticsCollector = new StatisticsCollector();
@@ -127,6 +131,54 @@ export class GameMaster {
     console.log("================================================");
 
     this.masterState = "playing";
+    this.recordSnapshot(undefined, "Game start");
+  }
+
+  /**
+   * Capture a point-in-time snapshot of the match for replay.
+   * Called at every step of the game (fate resolution, dice roll, strategic assessment,
+   * each dice action, each player's harvest, game end).
+   */
+  private recordSnapshot(explicitPlayerName?: string, explicitLabel?: string): void {
+    const phaseLabels: Record<GamePhase, string> = { fate: "Fate", roll: "Roll", move: "Move", harvest: "Harvest" };
+    let label = explicitLabel;
+    if (!label) {
+      const playerName = explicitPlayerName ?? (this.currentPhase === "move" ? this.gameState.getCurrentPlayer().name : undefined);
+      label = `Round ${this.gameState.currentRound} - ${phaseLabels[this.currentPhase]}${playerName ? ` - ${playerName}` : ""}`;
+    }
+
+    this.snapshots.push({
+      gameState: JSON.parse(JSON.stringify(this.gameState.toJSON())),
+      logLength: this.gameLog.length,
+      phase: this.currentPhase,
+      currentFateCard: this.currentFateCard,
+      label: label,
+    });
+  }
+
+  /**
+   * Get all replay snapshots captured so far
+   */
+  public getSnapshots(): readonly MatchSnapshot[] {
+    return this.snapshots;
+  }
+
+  /**
+   * Get the complete match recording (snapshots + game log + statistics + metadata),
+   * suitable for saving to a file and replaying later.
+   */
+  public getRecording(): MatchRecording {
+    return {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      playerNames: this.playerAgents.map((agent) => agent.getName()),
+      playerTypes: this.playerAgents.map((agent) => agent.getType()),
+      seed: this.seed,
+      maxRounds: this.maxRounds,
+      snapshots: [...this.snapshots],
+      gameLog: [...this.gameLog],
+      statistics: [...this.statisticsCollector.getTurnHistory()],
+    };
   }
 
   /**
@@ -201,6 +253,7 @@ export class GameMaster {
       this.addGameLogEntry("error", `Fate card resolution failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
+    this.recordSnapshot();
     if (onStepUpdate) {
       onStepUpdate();
     }
@@ -247,6 +300,7 @@ export class GameMaster {
       this.addGameLogEntry("dice", `${player.name} rolled ${actualDiceCount} dice: ${diceRollValues.map(die => `[${die}]`).join(", ")}${actualFoodCost > 0 ? ` (paid ${actualFoodCost} food dice tax)` : ""}`);
     }
 
+    this.recordSnapshot();
     if (onStepUpdate) {
       onStepUpdate();
     }
@@ -291,6 +345,7 @@ export class GameMaster {
       this.addGameLogEntry("error", `Strategic assessment failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
+    this.recordSnapshot();
     if (onStepUpdate) {
       onStepUpdate();
     }
@@ -308,6 +363,7 @@ export class GameMaster {
         }
       }
 
+      this.recordSnapshot();
       if (onStepUpdate) {
         onStepUpdate();
       }
@@ -685,6 +741,7 @@ export class GameMaster {
         console.log(`${entry.playerName} ${entry.type}: ${entry.content}`);
         this.gameLog.push(entry);
       }
+      this.recordSnapshot(this.gameState.players[playerIndex].name);
       if (onStepUpdate) {
         onStepUpdate();
       }
@@ -1547,6 +1604,7 @@ export class GameMaster {
     // Find the player index for the winner
     const winnerIndex = winnerName ? this.gameState.players.findIndex(p => p.name === winnerName) : undefined;
     this.gameState.winner = winnerIndex;
+    this.recordSnapshot(undefined, "Game over");
   }
 
   private endGameWithRanking(kingName: string): void {
@@ -1593,6 +1651,7 @@ export class GameMaster {
 
     // Set winner index for compatibility
     this.gameState.winner = this.gameState.players.findIndex(p => p.name === kingName);
+    this.recordSnapshot(undefined, "Game over");
   }
 
   private findHandOfKing(players: Player[]): Player {

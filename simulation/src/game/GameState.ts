@@ -4,6 +4,7 @@ import { getCoastalTilesForOceanPosition, getNeighboringOceanZones } from "../en
 import { Board } from "../lib/Board";
 import { BoardBuilder } from "../lib/BoardBuilder";
 import { GameSettings } from "../lib/GameSettings";
+import type { GameStateData } from "../lib/replayTypes";
 import type { Boat, Champion, FateEffects, OceanPosition, Player, Position, Tile } from "../lib/types";
 
 export class GameState {
@@ -273,7 +274,7 @@ export class GameState {
     return claimedTiles;
   }
 
-  public toJSON() {
+  public toJSON(): GameStateData {
     return {
       board: this.board.getTilesGrid(),
       players: this.players,
@@ -283,7 +284,35 @@ export class GameState {
       gameEnded: this.gameEnded,
       winner: this.winner,
       fateEffects: this.fateEffects,
+      doubleFoodTaxNextRound: this.doubleFoodTaxNextRound,
     };
+  }
+
+  /**
+   * Rehydrate a GameState from serialized data (e.g. a match recording snapshot).
+   */
+  public static fromJSON(data: GameStateData): GameState {
+    const height = data.board.length;
+    const width = data.board[0]?.length ?? 0;
+    const board = new Board(width, height);
+    for (const row of data.board) {
+      for (const tile of row) {
+        board.setTile(tile);
+      }
+    }
+
+    const gameState = new GameState(
+      board,
+      data.players,
+      data.currentPlayerIndex,
+      data.currentRound,
+      data.gameEnded,
+      data.winner,
+      data.startPlayerIndex,
+    );
+    gameState.fateEffects = data.fateEffects || {};
+    gameState.doubleFoodTaxNextRound = data.doubleFoodTaxNextRound;
+    return gameState;
   }
 
   /**

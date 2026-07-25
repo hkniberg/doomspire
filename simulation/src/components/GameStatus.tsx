@@ -1,7 +1,7 @@
 import React from "react";
 import { GameState } from "../game/GameState";
 
-type SimulationState = "setup" | "playing" | "finished";
+type SimulationState = "setup" | "playing" | "finished" | "replay";
 
 interface GameStatusProps {
   gameState: GameState;
@@ -25,7 +25,7 @@ export const GameStatus: React.FC<GameStatusProps> = ({ gameState, simulationSta
           {gameState.getCurrentPlayer().name}
         </span>{" "}
         |<strong> Game Status:</strong> {simulationState}
-        {simulationState === "finished" && gameState.winner !== undefined && (
+        {gameState.gameEnded && gameState.winner !== undefined && (
           <span style={{ color: "#28a745", fontWeight: "bold" }}>
             {" "}
             | 🎉 Winner: {gameState.players[gameState.winner]?.name}

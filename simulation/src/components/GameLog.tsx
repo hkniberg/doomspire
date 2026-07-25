@@ -1,5 +1,5 @@
 import { GameLogEntry, GameLogEntryType, GamePhase, Player } from "@/lib/types";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { LuCopy, LuDownload, LuMaximize2, LuMinimize2 } from "react-icons/lu";
 import { PlayerFilter } from "./PlayerFilter";
 
@@ -7,6 +7,10 @@ interface GameLogProps {
   gameLog: GameLogEntry[];
   isVisible: boolean;
   players?: Player[];
+  /** When set, log entries are clickable and report their index in the (unfiltered) game log */
+  onEntryClick?: (entryIndex: number) => void;
+  /** Keep the newest entry scrolled into view (used during replay scrubbing) */
+  autoScrollToBottom?: boolean;
 }
 
 const PHASE_LABELS: Record<GamePhase, string> = {
@@ -15,6 +19,13 @@ const PHASE_LABELS: Record<GamePhase, string> = {
   move: "Move Phase",
   harvest: "Harvest Phase",
 };
+
+// A log entry paired with its index in the full (unfiltered) game log,
+// so click-to-jump and expand state survive player filtering.
+interface IndexedLogEntry {
+  entry: GameLogEntry;
+  index: number;
+}
 
 // A consecutive run of log entries with the same phase and player attribution.
 // Table-wide entries (fate phase, roll phase) have no playerName, except fate-phase
@@ -32,9 +43,9 @@ interface RoundGroup {
 
 // Group log entries sequentially: by round, then into consecutive blocks per phase and player.
 // This preserves the actual order of events within a round.
-function groupGameLogEntries(entries: GameLogEntry[]): RoundGroup[] {
+function groupGameLogEntries(indexedEntries: IndexedLogEntry[]): RoundGroup[] {
   const rounds: RoundGroup[] = [];
-  entries.forEach((entry, index) => {
+  indexedEntries.forEach(({ entry, index }) => {
     let round = rounds[rounds.length - 1];
     if (!round || round.round !== entry.round) {
       round = { round: entry.round, blocks: [] };
@@ -128,25 +139,40 @@ function getEntryColor(type: GameLogEntryType): string {
   }
 }
 
-export const GameLog: React.FC<GameLogProps> = ({ gameLog, isVisible, players = [] }) => {
+export const GameLog: React.FC<GameLogProps> = ({
+  gameLog,
+  isVisible,
+  players = [],
+  onEntryClick,
+  autoScrollToBottom = false,
+}) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [expandedThinking, setExpandedThinking] = useState<Set<number>>(new Set());
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Keep the newest entry in view while replay scrubbing reveals entries
+  useEffect(() => {
+    if (autoScrollToBottom && isVisible && containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [autoScrollToBottom, isVisible, gameLog.length]);
 
   if (!isVisible || gameLog.length === 0) {
     return null;
   }
 
-  // Filter game log entries based on selected player.
+  // Filter game log entries based on selected player, keeping each entry's original index.
   // Table-wide entries (no playerName, e.g. fate and roll phase) are always included for context.
+  const indexedGameLog: IndexedLogEntry[] = gameLog.map((entry, index) => ({ entry, index }));
   const filteredGameLog = selectedPlayer
-    ? gameLog.filter((entry) => entry.playerName === undefined || entry.playerName === selectedPlayer)
-    : gameLog;
+    ? indexedGameLog.filter(({ entry }) => entry.playerName === undefined || entry.playerName === selectedPlayer)
+    : indexedGameLog;
 
   const convertToMarkdown = (): string => {
     let markdown = "# Game Log\n\n";
     // Filter out thinking entries from markdown export
-    const filteredGameLogForExport = filteredGameLog.filter((entry) => entry.type !== "thinking");
+    const filteredGameLogForExport = filteredGameLog.filter(({ entry }) => entry.type !== "thinking");
     const groupedEntries = groupGameLogEntries(filteredGameLogForExport);
 
     groupedEntries.forEach(({ round, blocks }) => {
@@ -245,7 +271,7 @@ export const GameLog: React.FC<GameLogProps> = ({ gameLog, isVisible, players = 
   const groupedEntries = groupGameLogEntries(filteredGameLog);
 
   return (
-    <div style={containerStyle}>
+    <div ref={containerRef} style={containerStyle}>
       <div
         style={{
           display: "flex",
@@ -360,7 +386,16 @@ export const GameLog: React.FC<GameLogProps> = ({ gameLog, isVisible, players = 
                       const isExpanded = expandedThinking.has(entryKey);
                       const indent = playerName ? "24px" : "16px";
 
-                      const toggleExpanded = () => {
+                      const clickableProps = onEntryClick
+                        ? {
+                            onClick: () => onEntryClick(entryKey),
+                            title: "Jump replay to this point",
+                          }
+                        : {};
+                      const clickableStyle: React.CSSProperties = onEntryClick ? { cursor: "pointer" } : {};
+
+                      const toggleExpanded = (event: React.MouseEvent) => {
+                        event.stopPropagation();
                         const newExpanded = new Set(expandedThinking);
                         if (isExpanded) {
                           newExpanded.delete(entryKey);
@@ -376,12 +411,14 @@ export const GameLog: React.FC<GameLogProps> = ({ gameLog, isVisible, players = 
                         return (
                           <div
                             key={entryKey}
+                            {...clickableProps}
                             style={{
                               marginBottom: "2px",
                               marginLeft: indent,
                               color: getEntryColor(entry.type),
                               fontStyle: "italic",
                               whiteSpace: isExpanded ? "pre-wrap" : "normal",
+                              ...clickableStyle,
                             }}
                           >
                             <span>
@@ -411,12 +448,14 @@ export const GameLog: React.FC<GameLogProps> = ({ gameLog, isVisible, players = 
                         return (
                           <div
                             key={entryKey}
+                            {...clickableProps}
                             style={{
                               marginBottom: "2px",
                               marginLeft: indent,
                               color: getEntryColor(entry.type),
                               fontStyle: entry.type === "assessment" ? "italic" : "normal",
                               fontWeight: entry.type === "system" ? "bold" : "normal",
+                              ...clickableStyle,
                             }}
                           >
                             {formattedEntry}
