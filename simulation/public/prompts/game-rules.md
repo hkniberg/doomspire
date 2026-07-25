@@ -160,6 +160,7 @@ Use a dice to move a boat up to that number of steps, and optionally transport a
 - When moving the boat, you may pick up a knight anywhere along the path.
 - When finished moving the boat, you must drop the knight at a coastal tile in the target ocean zone. The knight cannot stay on the boat (they get seasick).
 - A boat can also use a dice action to stay in the same ocean zone (moving zero steps) and transport a knight between coastal tiles in the same ocean zone.
+- Dropping a knight counts as entering the tile, so the normal knight entry restrictions apply: you cannot drop a knight on another player's home tile, or on a tile where you already have a knight.
 - A knight can be transported even if it has already interacted with a tile. If so, they cannot interact with the target tile, and they cannot be transported to a tile that requires interaction (for example an adventure tile, or a tile with a monster on it).
 
 > Simple example:

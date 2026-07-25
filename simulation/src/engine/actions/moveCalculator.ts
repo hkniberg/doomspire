@@ -284,6 +284,27 @@ export function calculateBoatMove(
 
 
 /**
+ * Ocean zones are 4 L-shaped tiles in the corners, so each one touches exactly two others,
+ * forming a ring: nw-ne-se-sw-nw. Diagonally opposite zones are two steps apart.
+ */
+export function getNeighboringOceanZones(oceanPosition: OceanPosition): OceanPosition[] {
+  switch (oceanPosition) {
+    case "nw":
+      return ["ne", "sw"];
+    case "ne":
+      return ["nw", "se"];
+    case "se":
+      return ["ne", "sw"];
+    case "sw":
+      return ["se", "nw"];
+  }
+}
+
+export function areOceanZonesAdjacent(from: OceanPosition, to: OceanPosition): boolean {
+  return getNeighboringOceanZones(from).includes(to);
+}
+
+/**
  * Get the coastal tiles that are adjacent to a given ocean position.
  * Based on game rules: each ocean zone touches 7 coastal tiles total.
  * TODO handle different board sizes

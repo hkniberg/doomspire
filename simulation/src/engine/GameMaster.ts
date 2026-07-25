@@ -20,7 +20,7 @@ import { PlayerAgent } from "../players/PlayerAgent";
 import { getChampionMovementBudget } from "../players/PlayerUtils";
 import { RandomPlayerAgent } from "../players/RandomPlayerAgent";
 import { calculateHarvest, getEligibleHarvestTiles } from "./actions/harvestCalculator";
-import { calculateBoatMove, calculateChampionMove } from "./actions/moveCalculator";
+import { areOceanZonesAdjacent, calculateBoatMove, calculateChampionMove } from "./actions/moveCalculator";
 import { DiceRoller, RandomDiceRoller } from "./DiceRoller";
 import { DiceRolls } from "./DiceRolls";
 import { handleAdventureCard } from "./handlers/adventureCardHandler";
@@ -473,6 +473,32 @@ export class GameMaster {
       if (!boat) {
         throw new Error(`Boat ${boatAction.boatId} not found for player ${player.name}`);
       }
+
+      const path = boatAction.movementPathIncludingStartPosition;
+      if (path && path.length > 0) {
+        if (path[0] !== boat.position) {
+          throw new Error(
+            `Boat ${boatAction.boatId} is in ocean zone ${boat.position}, but the movement path starts at ${path[0]}. The path must start at the boat's current ocean zone.`
+          );
+        }
+
+        const effectiveDiceValue = boatAction.diceValueUsed + (this.gameState.fateEffects.boatMovementBonus || 0);
+        const steps = path.length - 1;
+        if (steps > effectiveDiceValue) {
+          throw new Error(
+            `Boat path [${path.join(" -> ")}] is ${steps} steps, but the die only allows up to ${effectiveDiceValue}.`
+          );
+        }
+
+        for (let i = 1; i < path.length; i++) {
+          if (!areOceanZonesAdjacent(path[i - 1], path[i])) {
+            throw new Error(
+              `Invalid boat path [${path.join(" -> ")}]: ocean zones ${path[i - 1]} and ${path[i]} are not adjacent. Ocean zones form a ring (nw-ne-se-sw-nw), so nw/se and ne/sw are two steps apart. To keep the boat where it is, give a path containing only its current zone.`
+            );
+          }
+        }
+      }
+
       return [boatAction.diceValueUsed];
     }
 
@@ -946,6 +972,27 @@ export class GameMaster {
     const targetTile = this.gameState.getTile(dropPosition);
     if (!targetTile) {
       throw new Error(`No tile found at position ${formatPosition(dropPosition)}`);
+    }
+
+    // Boat transport counts as entering a tile, so the same entry restrictions as knight movement apply
+    const isOtherPlayerHome = this.gameState.players.some(
+      other => other.name !== player.name &&
+        other.homePosition.row === dropPosition.row &&
+        other.homePosition.col === dropPosition.col
+    );
+    if (isOtherPlayerHome) {
+      this.addGameLogEntry("boat", `Boat ${action.boatId} could not drop champion ${championId} at ${formatPosition(dropPosition)}: knights cannot enter another player's home tile.${reasoningText}`);
+      return;
+    }
+
+    const hasOwnChampion = player.champions.some(
+      other => other.id !== championId &&
+        other.position.row === dropPosition.row &&
+        other.position.col === dropPosition.col
+    );
+    if (hasOwnChampion) {
+      this.addGameLogEntry("boat", `Boat ${action.boatId} could not drop champion ${championId} at ${formatPosition(dropPosition)}: one of your own knights is already there.${reasoningText}`);
+      return;
     }
 
     // A knight that has already interacted cannot be dropped on a tile that requires interaction

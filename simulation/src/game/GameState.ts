@@ -1,6 +1,6 @@
 // Lords of Doomspire Game State Model
 
-import { getCoastalTilesForOceanPosition } from "../engine/actions/moveCalculator";
+import { getCoastalTilesForOceanPosition, getNeighboringOceanZones } from "../engine/actions/moveCalculator";
 import { Board } from "../lib/Board";
 import { BoardBuilder } from "../lib/BoardBuilder";
 import { GameSettings } from "../lib/GameSettings";
@@ -535,16 +535,7 @@ export class GameState {
    * Ocean zones form a ring: nw-ne-se-sw-nw
    */
   public getNeighboringOceanZones(oceanPosition: OceanPosition): OceanPosition[] {
-    switch (oceanPosition) {
-      case "nw":
-        return ["ne", "sw"];
-      case "ne":
-        return ["nw", "se"];
-      case "se":
-        return ["ne", "sw"];
-      case "sw":
-        return ["se", "nw"];
-    }
+    return getNeighboringOceanZones(oceanPosition);
   }
 
   /**
