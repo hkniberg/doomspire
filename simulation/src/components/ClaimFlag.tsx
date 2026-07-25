@@ -10,6 +10,32 @@ interface ClaimFlagProps {
   isProtected?: boolean;
 }
 
+const FLAG_WIDTH = 42;
+const FLAG_HEIGHT = 40;
+
+// Outline of the pole and pennant combined, used to draw a single halo behind both.
+const FLAG_SILHOUETTE = "M3,2 H8 V4 L36,12 L8,20 V38 H3 Z";
+const POLE = "M3,2 H8 V38 H3 Z";
+const PENNANT = "M8,4 L36,12 L8,20 Z";
+
+const FlagGraphic = ({ color }: { color: string }) => (
+  <svg
+    width={FLAG_WIDTH}
+    height={FLAG_HEIGHT}
+    viewBox={`0 0 ${FLAG_WIDTH} ${FLAG_HEIGHT}`}
+    style={{
+      display: "block",
+      filter: "drop-shadow(0px 1px 2px rgba(0,0,0,0.7))",
+    }}
+  >
+    {/* White halo so the flag reads against dark and light terrain alike */}
+    <path d={FLAG_SILHOUETTE} fill="#FFFFFF" stroke="#FFFFFF" strokeWidth={4} strokeLinejoin="round" />
+    <path d={POLE} fill="#8B4513" />
+    <path d={PENNANT} fill={color} />
+    <path d={FLAG_SILHOUETTE} fill="none" stroke="rgba(0,0,0,0.55)" strokeWidth={1.5} strokeLinejoin="round" />
+  </svg>
+);
+
 export const ClaimFlag = ({
   playerName,
   getPlayerColor,
@@ -20,12 +46,34 @@ export const ClaimFlag = ({
   const playerColors = getPlayerColor(playerName);
   const blockadingColors = blockadingPlayer ? getPlayerColor(blockadingPlayer) : null;
 
+  const protectionIndicator = isProtected ? (
+    <div
+      style={{
+        marginLeft: "4px",
+        padding: "2px 4px",
+        borderRadius: "4px",
+        backgroundColor: playerColors.main,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "8px",
+        fontWeight: "bold",
+        color: "#FFFFFF",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+        whiteSpace: "nowrap",
+      }}
+      title="This claim is protected by adjacent knights or warships"
+    >
+      P
+    </div>
+  ) : null;
+
   if (isBlockaded) {
     return (
       <div
         style={{
-          width: "40px",
-          height: "24px",
+          width: `${FLAG_WIDTH}px`,
+          height: `${FLAG_HEIGHT}px`,
           display: "flex",
           alignItems: "center",
           position: "relative",
@@ -40,25 +88,7 @@ export const ClaimFlag = ({
             alignItems: "flex-start",
           }}
         >
-          {/* Flag pole */}
-          <div
-            style={{
-              width: "3px",
-              height: "24px",
-              backgroundColor: "#8B4513",
-              marginRight: "2px",
-            }}
-          />
-          {/* Flag */}
-          <div
-            style={{
-              width: "0",
-              height: "0",
-              borderLeft: `18px solid ${playerColors.main}`,
-              borderTop: "6px solid transparent",
-              borderBottom: "6px solid transparent",
-            }}
-          />
+          <FlagGraphic color={playerColors.main} />
         </div>
         {/* Blockade indicator */}
         <div
@@ -79,28 +109,7 @@ export const ClaimFlag = ({
         >
           BLOCKADE
         </div>
-        {/* Protection indicator */}
-        {isProtected && (
-          <div
-            style={{
-              marginLeft: "4px",
-              padding: "2px 4px",
-              borderRadius: "4px",
-              backgroundColor: playerColors.main,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "8px",
-              fontWeight: "bold",
-              color: "#FFFFFF",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-              whiteSpace: "nowrap",
-            }}
-            title="This claim is protected by adjacent knights or warships"
-          >
-            P
-          </div>
-        )}
+        {protectionIndicator}
       </div>
     );
   }
@@ -108,54 +117,15 @@ export const ClaimFlag = ({
   return (
     <div
       style={{
-        width: "30px",
-        height: "24px",
+        width: `${FLAG_WIDTH}px`,
+        height: `${FLAG_HEIGHT}px`,
         display: "flex",
         alignItems: "flex-start",
         position: "relative",
       }}
     >
-      {/* Flag pole */}
-      <div
-        style={{
-          width: "3px",
-          height: "24px",
-          backgroundColor: "#8B4513",
-          marginRight: "2px",
-        }}
-      />
-      {/* Flag */}
-      <div
-        style={{
-          width: "0",
-          height: "0",
-          borderLeft: `18px solid ${playerColors.main}`,
-          borderTop: "6px solid transparent",
-          borderBottom: "6px solid transparent",
-        }}
-      />
-      {/* Protection indicator */}
-      {isProtected && (
-        <div
-          style={{
-            marginLeft: "4px",
-            padding: "2px 4px",
-            borderRadius: "4px",
-            backgroundColor: playerColors.main,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "8px",
-            fontWeight: "bold",
-            color: "#FFFFFF",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-            whiteSpace: "nowrap",
-          }}
-          title="This claim is protected by adjacent knights or warships"
-        >
-          P
-        </div>
-      )}
+      <FlagGraphic color={playerColors.main} />
+      {protectionIndicator}
     </div>
   );
 };
