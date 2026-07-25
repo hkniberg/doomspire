@@ -46,7 +46,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const userMessage = await this.prepareAssessmentMessage(gameState, gameLog, diceValues, turnNumber, traderItems);
 
         // Get text response for strategic assessment
-        const strategicAssessment = await this.claude.useClaude(userMessage, undefined, 3000, 6000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
+        const strategicAssessment = await this.claude.useClaude(userMessage, undefined, 6000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         return strategicAssessment.trim() || undefined;
     }
@@ -61,7 +61,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const userMessage = await this.prepareDiceActionMessage(gameState, gameLog, turnContext);
 
         // Get LLM response with structured JSON
-        const response = await this.claude.useClaude(userMessage, diceActionSchema, 1024, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
+        const response = await this.claude.useClaude(userMessage, diceActionSchema, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         const action = response as DiceAction;
 
@@ -108,7 +108,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         };
 
         // Get structured JSON response for decision
-        const response = await this.claude.useClaude(userMessage, schema, 0, 2000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
+        const response = await this.claude.useClaude(userMessage, schema, 2000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         // Validate that the chosen option is valid (should be guaranteed by the enum)
         if (!validChoices.includes(response.choice)) {
@@ -128,7 +128,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const userMessage = await this.prepareTraderDecisionMessage(gameState, gameLog, traderContext);
 
         // Get structured JSON response for trader decision
-        const response = await this.claude.useClaude(userMessage, traderDecisionSchema, 1024, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
+        const response = await this.claude.useClaude(userMessage, traderDecisionSchema, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         return response as TraderDecision;
     }
@@ -163,7 +163,7 @@ export class ClaudePlayerAgent implements PlayerAgent {
         const userMessage = await this.prepareHarvestDecisionMessage(gameState, gameLog, playerName, savedDiceValues, usableBuildings, availableBuildActions, potentialBuildActions);
 
         // Get structured JSON response for the harvest phase decision
-        const response = await this.claude.useClaude(userMessage, harvestDecisionSchema, 1024, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
+        const response = await this.claude.useClaude(userMessage, harvestDecisionSchema, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
 
         return response as HarvestDecision;
     }

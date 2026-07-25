@@ -61,13 +61,12 @@ export class Claude {
    *
    * Note: Sonnet 5, Opus 5, and Fable 5 use adaptive thinking; manual thinking budgets
    * are rejected with a 400 error on those models. Haiku 4.5 is the opposite: it only
-   * supports manual extended thinking with a fixed budget. The thinkingTokens parameter
-   * is kept for call-site compatibility but is ignored (a fixed budget is used for Haiku).
+   * supports manual extended thinking with a fixed budget. Thinking is therefore
+   * configured per model rather than per call.
    */
   async useClaude(
     userMessage: string,
     responseSchema?: any,
-    thinkingTokens: number = 0,
     responseTokens: number = DEFAULT_RESPONSE_TOKENS,
     thinkingLogger?: (content: string) => void,
   ): Promise<any> {
