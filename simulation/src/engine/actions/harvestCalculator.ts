@@ -7,6 +7,8 @@ export interface HarvestResult {
   harvestedTileCount: number;
   harvestedTilePositions: Position[];
   harvestedResources: Record<ResourceType, number>;
+  /** Requested tiles that were not harvested, so silently dropped plans are visible in the game log */
+  skippedTiles: Array<{ position: Position; reason: string }>;
 }
 
 /**
@@ -66,17 +68,27 @@ export function calculateHarvest(
 
   const eligibleTiles = getEligibleHarvestTiles(gameState, playerName);
   const selectedTiles: Tile[] = [];
+  const skippedTiles: Array<{ position: Position; reason: string }> = [];
 
   const isSelected = (tile: Tile) =>
     selectedTiles.some(t => t.position.row === tile.position.row && t.position.col === tile.position.col);
 
   // Chosen tiles, where eligible (deduplicated - die value = number of DIFFERENT tiles)
   for (const position of tilePositionsToHarvest) {
-    if (selectedTiles.length >= totalDiceValueUsed) break;
     const tile = eligibleTiles.find(t => t.position.row === position.row && t.position.col === position.col);
-    if (tile && !isSelected(tile)) {
-      selectedTiles.push(tile);
+    if (!tile) {
+      skippedTiles.push({ position, reason: "not an eligible harvest tile" });
+      continue;
     }
+    if (isSelected(tile)) {
+      skippedTiles.push({ position, reason: "listed more than once" });
+      continue;
+    }
+    if (selectedTiles.length >= totalDiceValueUsed) {
+      skippedTiles.push({ position, reason: `saved dice only cover ${totalDiceValueUsed} tile(s)` });
+      continue;
+    }
+    selectedTiles.push(tile);
   }
 
   // Harvest all resources from each selected tile
@@ -90,6 +102,7 @@ export function calculateHarvest(
   return {
     harvestedTileCount: selectedTiles.length,
     harvestedTilePositions: selectedTiles.map(t => t.position),
-    harvestedResources
+    harvestedResources,
+    skippedTiles
   };
 } 

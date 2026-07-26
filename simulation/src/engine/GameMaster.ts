@@ -1549,6 +1549,11 @@ export class GameMaster {
     } else {
       logFn("harvest", `Saved dice ${diceString} for harvesting, but no eligible tiles were harvested.`);
     }
+
+    // Requested tiles that were dropped are logged too, so silently discarded plans are visible
+    for (const skipped of harvestResult.skippedTiles) {
+      logFn("harvest", `SKIPPED harvest of ${formatPosition(skipped.position)}: ${skipped.reason}.`);
+    }
   }
 
   /**

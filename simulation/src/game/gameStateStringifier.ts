@@ -21,6 +21,24 @@ export function stringifyGameState(gameState: GameState): string {
 }
 
 /**
+ * One line per rival with the numbers that decide which win condition to race for.
+ * Used by prompts that don't include the full board state.
+ */
+export function stringifyStandings(gameState: GameState, excludePlayerName?: string): string {
+  const lines = gameState.players
+    .filter((player) => player.name !== excludePlayerName)
+    .map((player) => {
+      const claimedTiles = gameState.getClaimedTiles(player.name);
+      const starredCount = claimedTiles.filter((tile) => tile.isStarred).length;
+      return `- ${player.name}: ${player.fame} fame, ${player.might} might, ` +
+        `${claimedTiles.length} claimed tile${claimedTiles.length === 1 ? "" : "s"} (${starredCount} starred), ` +
+        `${player.dragonImpressions}/${GameSettings.DRAGON_IMPRESSIONS_TO_WIN} dragon impressions`;
+    });
+
+  return lines.join("\n");
+}
+
+/**
  * Converts a single tile to a single line, readable string with more info, optimized for use in game log.
  */
 export function stringifyTileForGameLog(tile: Tile, gameState: GameState, ignorePlayerName?: string): string {

@@ -1,9 +1,10 @@
 import { Player, ResourceType } from "@/lib/types";
 import { HarvestDecision } from "@/lib/actionTypes";
-import { handleBuildAction } from "./buildActionHandler";
+import { getEffectiveBuildCost, handleBuildAction } from "./buildActionHandler";
 import { GameSettings } from "@/lib/GameSettings";
 import { canAfford, deductCost } from "@/players/PlayerUtils";
 import { formatCost } from "@/lib/utils";
+import type { GameState } from "@/game/GameState";
 
 export interface BuildingUsageResult {
   blacksmithUsed: boolean;
@@ -24,7 +25,7 @@ export function hasHarvestPhaseBuildingOptions(player: Player): boolean {
     player.buildings.includes("blacksmith") ||
     player.buildings.includes("market") ||
     player.buildings.includes("fletcher");
-  return hasUsableBuilding || checkAvailableBuildActions(player).length > 0;
+  return hasUsableBuilding || getAffordableBuildActions(player).length > 0;
 }
 
 /**
@@ -230,48 +231,52 @@ function getBuildCostDetails(buildAction: string, player?: Player): string {
   }
 }
 
-function checkAvailableBuildActions(player: Player): string[] {
+/**
+ * Build actions the player can both perform (not already built, not at a unit cap,
+ * prerequisites met) and currently afford.
+ */
+export function getAffordableBuildActions(player: Player, gameState?: GameState): string[] {
   const availableActions: string[] = [];
+  const affords = (baseCost: Record<ResourceType, number>) =>
+    canAfford(player, getEffectiveBuildCost(baseCost, gameState));
 
-  // Check various build actions using canAfford utility and GameSettings
   const hasBlacksmith = player.buildings.includes("blacksmith");
-  if (!hasBlacksmith && canAfford(player, GameSettings.BLACKSMITH_COST)) {
+  if (!hasBlacksmith && affords(GameSettings.BLACKSMITH_COST)) {
     availableActions.push("blacksmith");
   }
 
   const hasMarket = player.buildings.includes("market");
-  if (!hasMarket && canAfford(player, GameSettings.MARKET_COST)) {
+  if (!hasMarket && affords(GameSettings.MARKET_COST)) {
     availableActions.push("market");
   }
 
   const hasFletcher = player.buildings.includes("fletcher");
-  if (!hasFletcher && canAfford(player, GameSettings.FLETCHER_COST)) {
+  if (!hasFletcher && affords(GameSettings.FLETCHER_COST)) {
     availableActions.push("fletcher");
   }
 
   const hasChapel = player.buildings.includes("chapel");
   const hasMonastery = player.buildings.includes("monastery");
-  if (!hasChapel && !hasMonastery && canAfford(player, GameSettings.CHAPEL_COST)) {
+  if (!hasChapel && !hasMonastery && affords(GameSettings.CHAPEL_COST)) {
     availableActions.push("chapel");
   }
 
-  if (hasChapel && !hasMonastery && canAfford(player, GameSettings.MONASTERY_COST)) {
+  if (hasChapel && !hasMonastery && affords(GameSettings.MONASTERY_COST)) {
     availableActions.push("upgradeChapelToMonastery");
   }
 
-  // FIXED: Use fixed cost as per game rules (always 3 Food, 3 Gold, 1 Ore)
   const currentChampionCount = player.champions.length;
-  if (currentChampionCount < GameSettings.MAX_CHAMPIONS_PER_PLAYER && canAfford(player, GameSettings.CHAMPION_COST)) {
+  if (currentChampionCount < GameSettings.MAX_CHAMPIONS_PER_PLAYER && affords(GameSettings.CHAMPION_COST)) {
     availableActions.push("recruitChampion");
   }
 
   const currentBoatCount = player.boats.length;
-  if (currentBoatCount < GameSettings.MAX_BOATS_PER_PLAYER && canAfford(player, GameSettings.BOAT_COST)) {
+  if (currentBoatCount < GameSettings.MAX_BOATS_PER_PLAYER && affords(GameSettings.BOAT_COST)) {
     availableActions.push("buildBoat");
   }
 
   const hasWarshipUpgrade = player.buildings.includes("warshipUpgrade");
-  if (!hasWarshipUpgrade && canAfford(player, GameSettings.WARSHIP_UPGRADE_COST)) {
+  if (!hasWarshipUpgrade && affords(GameSettings.WARSHIP_UPGRADE_COST)) {
     availableActions.push("warshipUpgrade");
   }
 

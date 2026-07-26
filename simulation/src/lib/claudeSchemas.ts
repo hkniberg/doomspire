@@ -165,15 +165,15 @@ export const harvestActionSchema = {
  */
 export const buildingUsageDecisionSchema = {
   type: "object",
-  description: "Parameters for using existing buildings. Omit fields entirely for buildings you don't have or don't want to use.",
+  description: "Parameters for using existing buildings. These are resolved in a fixed order - market first, then blacksmith, then fletcher - and each is paid from what you hold at that point, AFTER your harvest and after any earlier step. Declare the whole plan you intend, based on what you will hold when each step runs rather than on your stockpile right now. Omit fields entirely for buildings you don't have or don't want to use.",
   properties: {
     useBlacksmith: {
       type: "boolean",
-      description: "Whether to use the blacksmith to gain might (costs 1 gold + 3 ore). Omit (or use false) if you don't have a blacksmith or don't want to use it."
+      description: "Set true to buy 1 might for 1 gold + 3 ore. Resolved after your harvest and after your market sale, so set this true whenever your plan will cover the cost by then - gold raised at the market in the same harvest phase can pay for it."
     },
     sellAtMarket: {
       type: "object",
-      description: "Resources to sell at the market (2:1 ratio for gold). Amounts must not be negative. Omit this field entirely if you don't have a market or don't want to sell anything.",
+      description: "Resources to sell at the market (2:1 for gold, pooled across resource types; 1:1 during Trade Boom). Resolved after your harvest, so you may sell resources you are about to harvest this round. Amounts must not be negative. Omit this field entirely if you don't have a market or don't want to sell anything.",
       properties: {
         food: { type: "number" },
         wood: { type: "number" },
@@ -183,7 +183,7 @@ export const buildingUsageDecisionSchema = {
     },
     useFletcher: {
       type: "boolean",
-      description: "Whether to use the fletcher to gain might (costs 3 wood + 1 ore). Omit (or use false) if you don't have a fletcher or don't want to use it."
+      description: "Set true to buy 1 might for 3 wood + 1 ore. Resolved last of the three, after your harvest, market sale and blacksmith, so set this true whenever your plan will still cover the cost by then."
     }
   },
   additionalProperties: false
@@ -200,13 +200,13 @@ export const harvestDecisionSchema = {
     harvestTiles: {
       type: "array",
       items: positionSchema,
-      description: "Positions of the tiles to harvest from, using your saved dice. Max number of tiles = total value of saved dice. Leave empty if you saved no dice."
+      description: "Positions of the tiles to harvest from, using your saved dice. Only tiles listed as eligible in the prompt count, and the number of different tiles is capped by the total value of your saved dice - anything beyond the cap is ignored. Leave empty if you saved no dice."
     },
     buildingUsageDecision: buildingUsageDecisionSchema,
     buildAction: {
       type: "string",
       enum: ["blacksmith", "market", "recruitChampion", "buildBoat", "chapel", "upgradeChapelToMonastery", "warshipUpgrade", "fletcher"],
-      description: "Type of build action to perform (construct building, recruit champion, etc.). Omit this field entirely if you don't want to (or can't afford to) perform a build action - only pick one of the affordable build actions listed in the prompt."
+      description: "Type of build action to perform (construct building, recruit champion, etc.). Paid last, after your harvest and all building usage, so judge affordability against what you will hold at that point. Only pick one of the build options listed as still open to you in the prompt. Omit this field entirely if you would rather save the resources."
     },
     reasoning: {
       type: "string",

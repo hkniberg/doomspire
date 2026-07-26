@@ -2,11 +2,14 @@
 
 import { getTraderItemById } from "@/content/traderItems";
 import { getEligibleHarvestTiles } from "@/engine/actions/harvestCalculator";
-import { formatBuildingInfo, stringifyGameState, stringifyPlayer } from "@/game/gameStateStringifier";
+import { getEffectiveBuildCost } from "@/engine/handlers/buildActionHandler";
+import { getAffordableBuildActions } from "@/engine/handlers/buildingUsageHandler";
+import { stringifyGameState, stringifyPlayer, stringifyStandings } from "@/game/gameStateStringifier";
 import { DiceAction, HarvestDecision } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
 import { Decision, DecisionContext, GameLogEntry, Player, PlayerType, ResourceType, TurnContext } from "@/lib/types";
+import { formatCost, formatPosition, formatResources } from "@/lib/utils";
 import { GameState } from "../game/GameState";
 import { decisionSchema, diceActionSchema, harvestDecisionSchema, traderDecisionSchema } from "../lib/claudeSchemas";
 import { GameSettings } from "../lib/GameSettings";
@@ -145,22 +148,16 @@ export class ClaudePlayerAgent implements PlayerAgent {
             throw new Error(`Player with name ${playerName} not found`);
         }
 
-        // Check for usable buildings and available build actions early
-        const usableBuildings = getUsableBuildings(player);
-        const availableBuildActions = this.getAvailableBuildActions(player, player.resources);
-
-        // The build action is paid after the harvest is collected, so also list build actions
-        // that could become affordable with this round's harvest yield.
-        const potentialResources = this.getPotentialResourcesAfterHarvest(gameState, playerName, savedDiceValues);
-        const potentialBuildActions = this.getAvailableBuildActions(player, potentialResources)
-            .filter((action) => !availableBuildActions.includes(action));
-
-        if (savedDiceValues.length === 0 && usableBuildings.length === 0 && availableBuildActions.length === 0) {
-            // Nothing to harvest, no buildings to use, and no build actions available
+        // Skip the API call when there is provably nothing to decide. Affordability is exact
+        // here (and only here): with no saved dice there is no harvest income, so the current
+        // stockpile is already final for this round.
+        if (savedDiceValues.length === 0
+            && getUsableBuildings(player).length === 0
+            && getAffordableBuildActions(player, gameState).length === 0) {
             return {};
         }
 
-        const userMessage = await this.prepareHarvestDecisionMessage(gameState, gameLog, playerName, savedDiceValues, usableBuildings, availableBuildActions, potentialBuildActions);
+        const userMessage = await this.prepareHarvestDecisionMessage(gameState, gameLog, playerName, savedDiceValues);
 
         // Get structured JSON response for the harvest phase decision
         const response = await this.claude.useClaude(userMessage, harvestDecisionSchema, 3000, prefixThinkingWithPlayerName(this.name, thinkingLogger));
@@ -321,42 +318,18 @@ export class ClaudePlayerAgent implements PlayerAgent {
         gameLog: readonly GameLogEntry[],
         playerName: string,
         savedDiceValues: number[],
-        usableBuildings: string[],
-        availableBuildActions: string[],
-        potentialBuildActions: string[],
     ): Promise<string> {
         const player = gameState.getPlayer(playerName);
         if (!player) {
             throw new Error(`Player with name ${playerName} not found`);
         }
 
-        const boardState = stringifyGameState(gameState);
-        const gameLogText = this.formatGameLogForPrompt(gameLog, true, true);
-        const playerStatus = stringifyPlayer(player, gameState);
-
-        // Build the harvest options summary
-        const harvestInfo = this.buildHarvestInfoSummary(gameState, playerName, savedDiceValues);
-
-        // Build available buildings summary
-        const availableBuildings = this.buildAvailableBuildingsSummary(player, usableBuildings);
-
-        // Build available build actions summary
-        const currentBuildActionsText = availableBuildActions.length > 0
-            ? `You can currently afford these build actions: ${availableBuildActions.join(", ")}.`
-            : "You cannot afford any build actions with your current resources.";
-        const potentialBuildActionsText = potentialBuildActions.length > 0
-            ? ` After harvesting, these may also become affordable: ${potentialBuildActions.join(", ")}. The build action is paid after your harvest is collected - make sure your chosen harvest tiles actually cover the cost.`
-            : "";
-        const buildActionsText = currentBuildActionsText + potentialBuildActionsText;
-
         const variables: TemplateVariables = {
             playerName: player.name,
-            boardState: boardState,
-            gameLog: gameLogText,
-            playerStatus: playerStatus,
-            harvestInfo: harvestInfo,
-            availableBuildings: availableBuildings,
-            availableBuildActions: buildActionsText,
+            gameLog: this.formatGameLogForPrompt(gameLog, true, true),
+            playerStatus: this.buildHarvestPlayerSummary(player),
+            standings: stringifyStandings(gameState, player.name),
+            harvestPhaseSteps: this.buildHarvestPhaseSteps(gameState, player, savedDiceValues),
             foodTaxReminder: this.buildFoodTaxReminder(gameState),
             extraInstructions: this.getExtraInstructionsSection(gameState),
         };
@@ -364,158 +337,161 @@ export class ClaudePlayerAgent implements PlayerAgent {
         return await this.templateProcessor.processTemplate("useBuilding", variables);
     }
 
-    private buildHarvestInfoSummary(gameState: GameState, playerName: string, savedDiceValues: number[]): string {
+    /**
+     * A harvest-specific player summary. Deliberately much smaller than stringifyPlayer:
+     * knight positions, items, followers and boats have no bearing on any harvest sub-decision,
+     * and the claimed tile list is restated by the harvest step below.
+     */
+    private buildHarvestPlayerSummary(player: Player): string {
+        const knightCount = player.champions.length;
+        const buildings = player.buildings.length > 0 ? player.buildings.join(", ") : "none";
+        const stockpile = formatResources(player.resources, ", ");
+
+        return [
+            `${player.name}: ${player.might} might, ${player.fame} fame, ` +
+            `${player.dragonImpressions}/${GameSettings.DRAGON_IMPRESSIONS_TO_WIN} dragon impressions, ${knightCount} knight(s)`,
+            `You hold: ${stockpile === "None" ? "nothing" : stockpile}`,
+            `Buildings: ${buildings}`,
+        ].join("\n");
+    }
+
+    /**
+     * The harvest phase as an ordered list of steps, with the cost of each option.
+     *
+     * Deliberately states no affordability verdicts. Because the market converts between
+     * resource types, "can I afford this after harvesting and selling?" is a partition problem
+     * over choices the model has not made yet, so any verdict we precompute is either wrong or
+     * expensive to get right - and a wrong "you cannot afford this" is worse than none at all,
+     * since the model defers to it instead of doing the arithmetic itself. We supply the facts
+     * it cannot derive (eligible tiles, active fate effects, which build options are still open)
+     * and leave the arithmetic to the model.
+     */
+    private buildHarvestPhaseSteps(gameState: GameState, player: Player, savedDiceValues: number[]): string {
+        const steps: string[] = [];
+
+        steps.push(this.buildHarvestStep(gameState, player, savedDiceValues));
+
+        if (player.buildings.includes("market")) {
+            const boosted = gameState.fateEffects.marketRate1to1;
+            const rate = boosted ? 1 : GameSettings.MARKET_EXCHANGE_RATE;
+            const rateNote = boosted ? " (improved from 2:1 this round by Trade Boom)" : "";
+            steps.push(`Market - sell any resources ${rate}:1 for gold, pooled across resource types${rateNote}.`);
+        }
+
+        if (player.buildings.includes("blacksmith")) {
+            steps.push(`Blacksmith - pay ${formatCost(GameSettings.BLACKSMITH_USAGE_COST)} to gain 1 might. Once per harvest phase.`);
+        }
+
+        if (player.buildings.includes("fletcher")) {
+            steps.push(`Fletcher - pay ${formatCost(GameSettings.FLETCHER_USAGE_COST)} to gain 1 might. Once per harvest phase.`);
+        }
+
+        steps.push(this.buildBuildActionStep(gameState, player));
+
+        return steps.map((step, index) => `${index + 1}. ${step}`).join("\n");
+    }
+
+    private buildHarvestStep(gameState: GameState, player: Player, savedDiceValues: number[]): string {
         if (savedDiceValues.length === 0) {
-            return "You saved no dice for harvesting, so you cannot harvest this round. Leave harvestTiles empty.";
+            return "Harvest - you saved no dice for harvesting, so you cannot harvest this round. Leave harvestTiles empty.";
+        }
+
+        if (gameState.fateEffects.harvestBlockedForAll) {
+            return "Harvest - blocked for everyone this round by Famine, so harvesting would yield nothing. Leave harvestTiles empty.";
+        }
+
+        if (gameState.fateEffects.harvestBlockedForPlayer === player.name) {
+            return "Harvest - you are banned from harvesting this round (Harvest Ban), so harvesting would yield nothing. Leave harvestTiles empty.";
         }
 
         const diceSum = savedDiceValues.reduce((sum, value) => sum + value, 0);
         const diceString = savedDiceValues.map(die => `[${die}]`).join("+");
-        const eligibleTiles = getEligibleHarvestTiles(gameState, playerName);
+        const eligibleTiles = getEligibleHarvestTiles(gameState, player.name);
 
         if (eligibleTiles.length === 0) {
-            return `You saved dice ${diceString} for harvesting, but there are no tiles you can currently harvest from. Leave harvestTiles empty.`;
+            return `Harvest - you saved dice ${diceString}, but there are no tiles you can currently harvest from. Leave harvestTiles empty.`;
         }
+
+        // Bountiful Harvest doubles all yields, so show the doubled numbers rather than
+        // making the model apply the multiplier itself.
+        const multiplier = gameState.fateEffects.doubleHarvest ? 2 : 1;
+        const doubledNote = multiplier > 1 ? " Yields below are already doubled by Bountiful Harvest." : "";
 
         const tileLines = eligibleTiles.map(tile => {
             const yields = Object.entries(tile.resources || {})
                 .filter(([, amount]) => (amount || 0) > 0)
-                .map(([resource, amount]) => `${amount} ${resource}`)
+                .map(([resource, amount]) => `${(amount || 0) * multiplier} ${resource}`)
                 .join(" + ");
-            return `- (${tile.position.row}, ${tile.position.col}): ${yields}`;
+            const starred = tile.isStarred ? " (starred)" : "";
+            const blockading = tile.claimedBy !== player.name ? ` (${tile.claimedBy}'s tile, which you are blockading)` : "";
+            return `   - ${formatPosition(tile.position)}${starred}: ${yields}${blockading}`;
         });
 
+        const cap = Math.min(diceSum, eligibleTiles.length);
+        const capText = cap >= eligibleTiles.length
+            ? `you can harvest all ${eligibleTiles.length} of your eligible tiles`
+            : `you can harvest ${cap} of these ${eligibleTiles.length} eligible tiles`;
+
         return [
-            `You saved dice ${diceString} (total value ${diceSum}) for harvesting.`,
-            `You may harvest from up to ${diceSum} different tiles. Eligible tiles:`,
+            `Harvest - you saved dice ${diceString} (total value ${diceSum}), so ${capText}, taking every resource from each.${doubledNote}`,
             ...tileLines,
-            `Set harvestTiles to the positions of the tiles you want to harvest from.`,
+            `   Set harvestTiles to the positions you choose.`,
         ].join("\n");
     }
 
-    private buildAvailableBuildingsSummary(player: Player, usableBuildings: string[]): string {
-        const buildingSummaries: string[] = [];
-
-        // Check for Blacksmith
-        if (player.buildings.includes("blacksmith")) {
-            const canUseBlacksmith = usableBuildings.includes("blacksmith");
-            const status = canUseBlacksmith ? "Available" : "Cannot use (need 1 Gold + 3 Ore)";
-            buildingSummaries.push(`- ${formatBuildingInfo("blacksmith")}: ${status}`);
-        }
-
-        // Check for Market
-        if (player.buildings.includes("market")) {
-            const canUseMarket = usableBuildings.includes("market");
-            const status = canUseMarket ? "Available" : "Cannot use (no resources to sell)";
-            buildingSummaries.push(`- ${formatBuildingInfo("market")}: ${status}`);
-        }
-
-        // Check for Fletcher
-        if (player.buildings.includes("fletcher")) {
-            const canUseFletcher = usableBuildings.includes("fletcher");
-            const status = canUseFletcher ? "Available" : "Cannot use (need 3 Wood + 1 Ore)";
-            buildingSummaries.push(`- ${formatBuildingInfo("fletcher")}: ${status}`);
-        }
-
-        if (buildingSummaries.length === 0) {
-            return "You have no buildings.";
-        }
-
-        return buildingSummaries.join("\n");
-    }
-
     /**
-     * List the build actions the player could perform with the given resource pool.
-     * The pool is a parameter (rather than always player.resources) because the build
-     * action is paid after the harvest is collected, so we also want to check
-     * affordability against the potential post-harvest resources.
+     * The build options that are structurally open to the player: not already built, not at a
+     * unit cap, prerequisites met. Affordability is deliberately not filtered here - that is
+     * arithmetic the model does itself, once it knows what its harvest and market sale yielded.
      */
-    private getAvailableBuildActions(player: Player, resources: Record<ResourceType, number>): string[] {
-        const affords = (cost: Record<ResourceType, number>): boolean =>
-            resources.food >= cost.food && resources.wood >= cost.wood && resources.ore >= cost.ore && resources.gold >= cost.gold;
+    private buildBuildActionStep(gameState: GameState, player: Player): string {
+        const options: string[] = [];
+        const cost = (baseCost: Record<ResourceType, number>) =>
+            formatCost(getEffectiveBuildCost(baseCost, gameState));
 
-        const availableActions: string[] = [];
-
-        // Check Blacksmith (2 Food + 2 Ore, max 1 per player)
-        const hasBlacksmith = player.buildings.includes("blacksmith");
-        if (!hasBlacksmith && affords(GameSettings.BLACKSMITH_COST)) {
-            availableActions.push("blacksmith");
+        if (!player.buildings.includes("blacksmith")) {
+            options.push(`blacksmith (${cost(GameSettings.BLACKSMITH_COST)})`);
         }
 
-        // Check Market (2 Food + 2 Wood, max 1 per player)
-        const hasMarket = player.buildings.includes("market");
-        if (!hasMarket && affords(GameSettings.MARKET_COST)) {
-            availableActions.push("market");
+        if (!player.buildings.includes("market")) {
+            options.push(`market (${cost(GameSettings.MARKET_COST)})`);
         }
 
-        // Check Fletcher (1 Wood + 1 Food + 1 Gold + 1 Ore, max 1 per player)
-        const hasFletcher = player.buildings.includes("fletcher");
-        if (!hasFletcher && affords(GameSettings.FLETCHER_COST)) {
-            availableActions.push("fletcher");
+        if (!player.buildings.includes("fletcher")) {
+            options.push(`fletcher (${cost(GameSettings.FLETCHER_COST)})`);
         }
 
-        // Check Chapel (6 Wood + 2 Gold, only once per player)
         const hasChapel = player.buildings.includes("chapel");
         const hasMonastery = player.buildings.includes("monastery");
-        if (!hasChapel && !hasMonastery && affords(GameSettings.CHAPEL_COST)) {
-            availableActions.push("chapel");
+        if (!hasChapel && !hasMonastery) {
+            options.push(`chapel (${cost(GameSettings.CHAPEL_COST)})`);
+        }
+        if (hasChapel && !hasMonastery) {
+            options.push(`upgradeChapelToMonastery (${cost(GameSettings.MONASTERY_COST)})`);
         }
 
-        // Check Monastery upgrade (8 Wood + 3 Gold + 1 Ore, requires chapel)
-        if (hasChapel && !hasMonastery && affords(GameSettings.MONASTERY_COST)) {
-            availableActions.push("upgradeChapelToMonastery");
+        if (player.champions.length < GameSettings.MAX_CHAMPIONS_PER_PLAYER) {
+            options.push(`recruitChampion (${cost(GameSettings.CHAMPION_COST)})`);
         }
 
-        // Check Champion recruitment (max 3 total)
-        const currentChampionCount = player.champions.length;
-        if (currentChampionCount < GameSettings.MAX_CHAMPIONS_PER_PLAYER) {
-            if (affords(GameSettings.CHAMPION_COST)) {
-                availableActions.push("recruitChampion");
-            }
+        if (player.boats.length < GameSettings.MAX_BOATS_PER_PLAYER) {
+            options.push(`buildBoat (${cost(GameSettings.BOAT_COST)})`);
         }
 
-        // Check Boat building (max 2 boats total)
-        const currentBoatCount = player.boats.length;
-        if (currentBoatCount < GameSettings.MAX_BOATS_PER_PLAYER && affords(GameSettings.BOAT_COST)) {
-            availableActions.push("buildBoat");
+        if (!player.buildings.includes("warshipUpgrade")) {
+            options.push(`warshipUpgrade (${cost(GameSettings.WARSHIP_UPGRADE_COST)})`);
         }
 
-        // Check Warship upgrade (2 Wood + 1 Ore + 1 Gold, max 1 per player)
-        const hasWarshipUpgrade = player.buildings.includes("warshipUpgrade");
-        if (!hasWarshipUpgrade && affords(GameSettings.WARSHIP_UPGRADE_COST)) {
-            availableActions.push("warshipUpgrade");
+        const discountNote = gameState.fateEffects.buildCostReduction
+            ? " Costs below are already reduced by Merchant Fair." : "";
+
+        if (options.length === 0) {
+            return "One build action, paid last - but you have already built everything available to you, so omit buildAction.";
         }
 
-        return availableActions;
-    }
-
-    /**
-     * The player's resources plus the total yield of all eligible harvest tiles this round.
-     * An optimistic upper bound: if the player has fewer saved dice than eligible tiles,
-     * not all of them can actually be harvested. The prompt warns the AI about this.
-     */
-    private getPotentialResourcesAfterHarvest(
-        gameState: GameState,
-        playerName: string,
-        savedDiceValues: number[],
-    ): Record<ResourceType, number> {
-        const player = gameState.getPlayer(playerName)!;
-        const potential: Record<ResourceType, number> = { ...player.resources };
-
-        if (savedDiceValues.length === 0) {
-            return potential;
-        }
-
-        // Bountiful Harvest fate card doubles all harvest yields
-        const multiplier = gameState.fateEffects.doubleHarvest ? 2 : 1;
-
-        for (const tile of getEligibleHarvestTiles(gameState, playerName)) {
-            for (const [resource, amount] of Object.entries(tile.resources || {})) {
-                potential[resource as ResourceType] += (amount || 0) * multiplier;
-            }
-        }
-
-        return potential;
+        return `One build action, paid last (so you cannot use a building you build this round).${discountNote}\n` +
+            `   Still open to you: ${options.join(", ")}.\n` +
+            `   Omit buildAction if you would rather save the resources.`;
     }
 
     /**

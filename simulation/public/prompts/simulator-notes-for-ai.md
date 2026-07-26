@@ -28,6 +28,16 @@ involves free-form negotiation and table talk that the simulator does not suppor
 
 ## Simulator interpretations of rules gaps
 
+- **The harvest phase resolves in a fixed order**: harvest, then market, then blacksmith, then
+  fletcher, then your one build action. The rules do not specify an order for using buildings; the
+  simulator always sells at the market first so that the gold you raise can pay for a blacksmith
+  purchase (and any building purchase can pay for the build action) in the same harvest phase.
+  Each step is paid from what you hold at that moment, not from what you held at the start of the
+  phase, so you should plan the whole sequence and declare all of it at once. Anything you cannot
+  pay for when its step arrives is skipped and noted in the game log.
+- **Market sales pool across resource types, and remainders are kept**: selling 3 food and 1 wood
+  at 2:1 yields 2 gold. If you offer an odd number of resources, the leftover one is not consumed.
+  Gold itself cannot be sold at the market.
 - **Council votes with zero fame**: votes are weighted by fame; players with 0 fame are not prompted
   to vote (they abstain automatically, since their vote weight is 0). If all voters have 0 fame, the
   vote always ties and has no effect.
