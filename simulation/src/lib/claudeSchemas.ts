@@ -87,12 +87,12 @@ export const championActionSchema = {
   properties: {
     diceValueUsed: {
       type: "number",
-      description: "The dice value being consumed for this action"
+      description: "One of your remaining dice values (1, 2 or 3)"
     },
     diceValuesUsed: {
       type: "array",
       items: { type: "number" },
-      description: "Optional: combine two or more dice into one longer movement (sprinting). The step values add up. If provided, diceValueUsed is ignored."
+      description: "Optional: combine two or more dice into one longer movement (sprinting). List the individual dice, not their total - a 5 step sprint is [3, 2], not [5]. If provided, diceValueUsed is ignored."
     },
     championId: {
       type: "number",
@@ -118,7 +118,7 @@ export const boatActionSchema = {
   properties: {
     diceValueUsed: {
       type: "number",
-      description: "The dice value being consumed for this action"
+      description: "One of your remaining dice values (1, 2 or 3)"
     },
     boatId: {
       type: "number",
@@ -153,7 +153,7 @@ export const harvestActionSchema = {
     diceValuesUsed: {
       type: "array",
       items: { type: "number" },
-      description: "Array of dice values to save for the harvest phase"
+      description: "Which of your remaining dice (1, 2 or 3) to save for the harvest phase"
     }
   },
   required: ["diceValuesUsed"],
