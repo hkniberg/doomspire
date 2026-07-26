@@ -1,0 +1,331 @@
+# Game session
+- Current round: 14
+- Current player: Oliver
+- Fate card this round: Charity Decree - Council vote: each player votes YES or NO (fame = vote weight).
+If YES wins: each player (except those tied for fewest total resources) gives 1 resource of their choice to one of the players with the fewest total resources.
+If tied or NO wins: no effect.
+
+# Players
+
+## Sam
+- Might: 0
+- Fame: 7
+- Dragon impressions: 0/2
+- Home: (0,0)
+- Resource stockpile: 1 wood
+- champion1 at (1,1)
+  - Has The Dragon's Egg (dragons-egg) - A dragon egg, lost long ago. Carry it to **Doomspire** and return it to *impress the dragon* once, as if you had reached one of the four win-conditions. The egg is then gone.
+  - Has Spear (spear) - Gain `+1 might` when fighting **beasts**.
+- champion2 at (0,0)
+  - Has Löng Swörd (long-sword) - It's a **löng swörd**. Gives `+2 might`, but takes up `2x item slots`.
+- boat1 at (ne)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+- claims (2 tiles):
+  - Tile (0,0) providing 1 food, 1 wood
+  - Tile (2,1) providing 1 ore (protected)
+
+## Sarah
+- Might: 3
+- Fame: 2
+- Dragon impressions: 0/2
+- Home: (0,7)
+- Resource stockpile: 1 food, 2 wood, 1 ore
+- champion1 at (0,7)
+  - Has Stuck ring (stuck-ring) - The ring does nothing and is stuck on your knight
+- champion2 at (2,3) (has interacted this round, cannot use more action dice)
+- boat1 at (se)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+  - fletcher (buy 1 might for 3 wood + 1 ore, once per harvest phase)
+  - blacksmith (buy 1 might for 1 gold + 3 ore, once per harvest phase)
+- claims (5 tiles):
+  - Tile (0,7) providing 1 food, 1 wood
+  - Tile (1,6) providing 1 food
+  - Tile (1,7) providing 1 wood (protected)
+  - Tile (2,3) (starred) providing 1 wood, 1 ore
+  - Tile (2,7) (starred) providing 1 food, 1 ore
+
+## Oliver
+- Might: 2
+- Fame: 10
+- Dragon impressions: 2/2
+- Home: (7,0)
+- Resource stockpile: 1 food, 1 wood, 14 gold
+- champion1 at (4,3)
+  - Follower: Proud Mercenary (proud-mercenary)
+- champion2 at (5,3)
+- boat1 at (sw)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+  - fletcher (buy 1 might for 3 wood + 1 ore, once per harvest phase)
+- claims (9 tiles):
+  - Tile (3,0) providing 1 food
+  - Tile (3,1) providing 1 ore
+  - Tile (5,1) providing 1 wood
+  - Tile (5,3) (starred) providing 2 gold (protected)
+  - Tile (6,0) providing 1 food
+  - Tile (6,2) providing 1 food
+  - Tile (6,3) providing 1 ore (protected)
+  - Tile (7,0) providing 1 food, 1 wood
+  - Tile (7,3) providing 1 wood
+
+## Fabian
+- Might: 2
+- Fame: 6
+- Dragon impressions: 0/2
+- Home: (7,7)
+- Resource stockpile: 1 ore
+- champion1 at (1,3)
+- champion2 at (4,5)
+- champion3 at (5,6)
+- boat1 at (ne)
+- Buildings:
+  - market (sell any resources for gold at 2:1 during the harvest phase, resources can be pooled)
+  - fletcher (buy 1 might for 3 wood + 1 ore, once per harvest phase)
+- claims (10 tiles):
+  - Tile (0,2) providing 1 gold
+  - Tile (1,3) (starred) providing 2 ore
+  - Tile (1,4) providing 1 wood (protected)
+  - Tile (2,5) (starred) providing 2 wood
+  - Tile (4,6) providing 1 wood (protected)
+  - Tile (4,7) (starred) providing 2 food
+  - Tile (5,6) providing 1 gold
+  - Tile (6,7) providing 1 ore
+  - Tile (7,5) providing 1 ore
+  - Tile (7,7) providing 1 food, 1 wood
+
+# Board
+
+Tile (0,0)
+- Home tile for Sam (can ONLY be entered by Sam's champions)
+- Sam champion2 is here
+
+Tile (0,1)
+- Tier 1 adventure tile (explored)
+
+Tile (0,2)
+- Resource tile providing 1 gold
+- Claimed by Fabian
+
+Tile (0,3)
+- Tier 1 adventure tile (explored)
+
+Tile (0,4)
+- Temple (no combat). Sacrifice 2 fame to gain 1 might (once per round)
+
+Tile (0,5)
+- Mercenary camp (no combat). Buy 1 might for 3 gold (once per round)
+
+Tile (0,6)
+- Tier 1 adventure tile (explored)
+
+Tile (0,7)
+- Home tile for Sarah (can ONLY be entered by Sarah's champions)
+- Sarah champion1 is here
+
+Tile (1,0)
+- Unclaimed Resource tile providing 1 food
+
+Tile (1,1)
+- Trader (no combat). Exchange 2 of any resource (food/wood/ore/gold) for 1 of any resource. Buy weapons/tools/items for gold. Once per round
+- Sam champion1 is here
+
+Tile (1,2)
+- Tier 1 oasis
+
+Tile (1,3)
+- Starred Resource tile providing 2 ore
+- Claimed by Fabian
+- Fabian champion1 is here
+
+Tile (1,4)
+- Resource tile providing 1 wood
+- Claimed by Fabian
+- Protected by unit in neighbouring tile
+
+Tile (1,5)
+- Tier 1 adventure tile (explored)
+
+Tile (1,6)
+- Resource tile providing 1 food
+- Claimed by Sarah
+
+Tile (1,7)
+- Resource tile providing 1 wood
+- Claimed by Sarah
+- Protected by unit in neighbouring tile
+
+Tile (2,0)
+- Tier 1 adventure tile (explored)
+
+Tile (2,1)
+- Resource tile providing 1 ore
+- Claimed by Sam
+- Protected by unit in neighbouring tile
+
+Tile (2,2)
+- Tier 2 adventure tile (explored)
+- No adventure cards left
+
+Tile (2,3)
+- Starred Resource tile providing 1 wood, 1 ore
+- Claimed by Sarah
+- Sarah champion2 is here
+
+Tile (2,4)
+- Unexplored tier 2 tile
+
+Tile (2,5)
+- Starred Resource tile providing 2 wood
+- Claimed by Fabian
+
+Tile (2,6)
+- Tier 1 adventure tile (explored)
+
+Tile (2,7)
+- Starred Resource tile providing 1 food, 1 ore
+- Claimed by Sarah
+
+Tile (3,0)
+- Resource tile providing 1 food
+- Claimed by Oliver
+
+Tile (3,1)
+- Resource tile providing 1 ore
+- Claimed by Oliver
+
+Tile (3,2)
+- Unclaimed Starred Resource tile providing 2 food
+- Monster: bear (beast) (might 5) (reward 2 fame, 3 food)
+
+Tile (3,3)
+- Tier 3 adventure tile (explored)
+- Monster: three-eyed-ape (beast) (might 7) (reward 3 fame, 3 food, 3 wood)
+
+Tile (3,4)
+- Unexplored tier 3 tile
+
+Tile (3,5)
+- Tier 1 oasis
+
+Tile (3,6)
+- Wolf Den (empty, wolf slain)
+
+Tile (3,7)
+- Tier 1 adventure tile (explored)
+
+Tile (4,0)
+- Tier 1 adventure tile (explored)
+
+Tile (4,1)
+- Tier 2 adventure tile (explored)
+
+Tile (4,2)
+- Bear Cave (empty, bear slain)
+
+Tile (4,3)
+- Doomspire Dragon (might 8 + 2D3). Impress it (17+ fame, 12+ gold, 4+ starred tiles, or defeat it in combat) or be eaten. First player to impress it 2 times wins
+- Dragon's treasure hoard: 2 stack(s) remaining (take one as reward for impressing the dragon)
+- Oliver champion1 is here
+
+Tile (4,4)
+- Unexplored tier 3 tile
+
+Tile (4,5)
+- Bear Cave (empty, bear slain)
+- Fabian champion2 is here
+
+Tile (4,6)
+- Resource tile providing 1 wood
+- Claimed by Fabian
+- Protected by unit in neighbouring tile
+
+Tile (4,7)
+- Starred Resource tile providing 2 food
+- Claimed by Fabian
+
+Tile (5,0)
+- Tier 1 adventure tile (explored)
+
+Tile (5,1)
+- Resource tile providing 1 wood
+- Claimed by Oliver
+
+Tile (5,2)
+- Tier 2 adventure tile (explored)
+
+Tile (5,3)
+- Starred Resource tile providing 2 gold
+- Claimed by Oliver
+- Protected by unit in neighbouring tile
+- Oliver champion2 is here
+
+Tile (5,4)
+- Unexplored tier 2 tile
+
+Tile (5,5)
+- Unexplored tier 2 tile
+
+Tile (5,6)
+- Resource tile providing 1 gold
+- Claimed by Fabian
+- Fabian champion3 is here
+
+Tile (5,7)
+- Wolf Den (empty, wolf slain)
+
+Tile (6,0)
+- Resource tile providing 1 food
+- Claimed by Oliver
+
+Tile (6,1)
+- Tier 1 oasis
+
+Tile (6,2)
+- Resource tile providing 1 food
+- Claimed by Oliver
+
+Tile (6,3)
+- Resource tile providing 1 ore
+- Claimed by Oliver
+- Protected by unit in neighbouring tile
+
+Tile (6,4)
+- Wolf Den (empty, wolf slain)
+
+Tile (6,5)
+- Tier 2 adventure tile (explored)
+
+Tile (6,6)
+- Tier 1 oasis
+
+Tile (6,7)
+- Resource tile providing 1 ore
+- Claimed by Fabian
+
+Tile (7,0)
+- Home tile for Oliver (can ONLY be entered by Oliver's champions)
+
+Tile (7,1)
+- Tier 1 adventure tile (explored)
+
+Tile (7,2)
+- Tier 2 adventure tile (explored)
+
+Tile (7,3)
+- Resource tile providing 1 wood
+- Claimed by Oliver
+
+Tile (7,4)
+- Tier 1 adventure tile (explored)
+
+Tile (7,5)
+- Resource tile providing 1 ore
+- Claimed by Fabian
+
+Tile (7,6)
+- Tier 1 adventure tile (explored)
+
+Tile (7,7)
+- Home tile for Fabian (can ONLY be entered by Fabian's champions)
