@@ -79,18 +79,18 @@ const getResourceTileImage = (tile: Tile): string => {
   const hasOre = resources.ore > 0;
   const hasGold = resources.gold > 0;
 
-  // Single resource tiles
-  if (hasFood && !hasWood && !hasOre && !hasGold) return "url(/tiles/food.png)";
-  if (hasWood && !hasFood && !hasOre && !hasGold) return "url(/tiles/wood.png)";
-  if (hasGold && !hasFood && !hasWood && !hasOre) return "url(/tiles/gold.png)";
-  if (hasOre && !hasFood && !hasWood && !hasGold) return "url(/tiles/ore.png)";
+  // Single resource tiles, with a dedicated image for the 2-resource ("starred") variant
+  const singleResourceImage = (name: string, amount: number) =>
+    amount >= 2 ? `url(/tiles/${name}-2.png)` : `url(/tiles/${name}.png)`;
 
-  // Dual resource tiles
-  if (hasFood && hasGold && !hasWood && !hasOre) return "url(/tiles/food-gold.png)";
+  if (hasFood && !hasWood && !hasOre && !hasGold) return singleResourceImage("food", resources.food);
+  if (hasWood && !hasFood && !hasOre && !hasGold) return singleResourceImage("wood", resources.wood);
+  if (hasGold && !hasFood && !hasWood && !hasOre) return singleResourceImage("gold", resources.gold);
+  if (hasOre && !hasFood && !hasWood && !hasGold) return singleResourceImage("ore", resources.ore);
+
+  // Dual resource tiles. Only the combinations placed by tilesDefs have artwork;
+  // other pairs fall through and render as a plain colored tile with resource icons.
   if (hasFood && hasOre && !hasWood && !hasGold) return "url(/tiles/food-ore.png)";
-  if (hasFood && hasWood && !hasOre && !hasGold) return "url(/tiles/food-wood.png)";
-  if (hasGold && hasOre && !hasFood && !hasWood) return "url(/tiles/gold-ore.png)";
-  if (hasGold && hasWood && !hasFood && !hasOre) return "url(/tiles/gold-wood.png)";
   if (hasOre && hasWood && !hasFood && !hasGold) return "url(/tiles/ore-wood.png)";
 
   return "none";
@@ -103,7 +103,6 @@ const getBackgroundImage = (tile: Tile): string => {
 
   // Simple tile types with direct image mapping
   const simpleTileImages: Record<string, string> = {
-    empty: "url(/tiles/empty.png)",
     temple: "url(/tiles/temple.png)",
     trader: "url(/tiles/trader.png)",
     mercenary: "url(/tiles/mercenary.png)",
