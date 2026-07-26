@@ -87,7 +87,7 @@ export const championActionSchema = {
   properties: {
     diceValueUsed: {
       type: "number",
-      description: "One of your remaining dice values (1, 2 or 3)"
+      description: "Which of your remaining dice values (1, 2 or 3) to use"
     },
     diceValuesUsed: {
       type: "array",
@@ -118,7 +118,7 @@ export const boatActionSchema = {
   properties: {
     diceValueUsed: {
       type: "number",
-      description: "One of your remaining dice values (1, 2 or 3)"
+      description: "Which of your remaining dice values (1, 2 or 3) to use"
     },
     boatId: {
       type: "number",
@@ -153,7 +153,7 @@ export const harvestActionSchema = {
     diceValuesUsed: {
       type: "array",
       items: { type: "number" },
-      description: "Which of your remaining dice (1, 2 or 3) to save for the harvest phase"
+      description: "Which of your remaining dice values (1, 2 or 3) to save for the harvest phase"
     }
   },
   required: ["diceValuesUsed"],
