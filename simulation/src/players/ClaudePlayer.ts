@@ -198,11 +198,6 @@ export class ClaudePlayerAgent implements PlayerAgent {
             ? `\nTrader Items Available:\n${traderItemsText}`
             : "\nTrader Items Available: None";
 
-        // Describe the current fate card (round-scoped effects)
-        const fateSection = gameState.fateEffects.fateCardName
-            ? `\nCurrent fate card: ${gameState.fateEffects.fateCardName}${gameState.fateEffects.fateCardEffect ? ` - ${gameState.fateEffects.fateCardEffect}` : ""} (applies this round only)`
-            : "";
-
         const variables: TemplateVariables = {
             playerName: this.name,
             boardState: boardState,
@@ -211,7 +206,6 @@ export class ClaudePlayerAgent implements PlayerAgent {
             turnNumber: turnNumber,
             extraInstructions: this.getExtraInstructionsSection(gameState),
             traderItems: traderItemsSection,
-            adventureCards: fateSection,
         };
 
         return await this.templateProcessor.processTemplate("strategicAssessment", variables);

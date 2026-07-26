@@ -285,21 +285,60 @@ export const PlayerInfoBox = ({
             </div>
           </div>
 
-          {/* Player Type Badge (with model and token cost for Claude players) */}
-          {playerType && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  backgroundColor: playerType === "claude" ? "#007bff" : "#6c757d",
-                  color: "white",
-                  padding: "2px 6px",
-                  borderRadius: "4px",
-                  textTransform: "uppercase",
-                }}
-              >
-                {playerType === "claude" ? `claude · ${claudeModel ?? DEFAULT_CLAUDE_MODEL}` : playerType}
-              </div>
+          {/* Dice and Player Type Badge (with model and token cost for Claude players) */}
+          {(playerType || (player.turnDice && player.turnDice.length > 0)) && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "3px" }}>
+              {player.turnDice && player.turnDice.length > 0 && (
+                <div style={{ display: "flex", gap: "3px" }}>
+                  {player.turnDice.map((die, index) => {
+                    const style =
+                      die.usedFor === "action"
+                        ? { backgroundColor: "#e9ecef", border: "1.5px solid #ced4da", color: "#adb5bd" }
+                        : die.usedFor === "harvest"
+                          ? { backgroundColor: "#d4edda", border: "1.5px solid #28a745", color: "#155724" }
+                          : { backgroundColor: "white", border: "1.5px solid #495057", color: "#2c3e50" };
+                    const title =
+                      die.usedFor === "action"
+                        ? "Used"
+                        : die.usedFor === "harvest"
+                          ? "Saved for harvest"
+                          : "Available";
+                    return (
+                      <div
+                        key={index}
+                        title={title}
+                        style={{
+                          width: "18px",
+                          height: "18px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          ...style,
+                        }}
+                      >
+                        {die.value}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {playerType && (
+                <div
+                  style={{
+                    fontSize: "10px",
+                    backgroundColor: playerType === "claude" ? "#007bff" : "#6c757d",
+                    color: "white",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {playerType === "claude" ? `claude · ${claudeModel ?? DEFAULT_CLAUDE_MODEL}` : playerType}
+                </div>
+              )}
               {playerType === "claude" && tokenUsageTracker && (
                 <div
                   style={{ fontSize: "10px", color: "#6c757d", fontWeight: "bold" }}

@@ -11,17 +11,17 @@
 
 import { BoatAction, ChampionAction, DiceAction, HarvestDecision, TileAction } from "@/lib/actionTypes";
 import { MatchRecording, MatchSnapshot } from "@/lib/replayTypes";
-import { GameLogEntry, GameLogEntryType, GamePhase, Player, Position, Tile, TurnContext } from "@/lib/types";
+import { Champion, GameLogEntry, GameLogEntryType, GamePhase, Player, Position, Tile, TurnContext } from "@/lib/types";
 import { formatPosition, formatResources } from "@/lib/utils";
 import { FATE_CARDS, FIRST_FATE_CARD_ID, FateCard } from "@/content/fateCards";
 import { GameState } from "../game/GameState";
 import { stringifyTileForGameLog } from "../game/gameStateStringifier";
 import { CARDS, GameDecks } from "../lib/cards";
 import { PlayerAgent } from "../players/PlayerAgent";
-import { getChampionMovementBudget } from "../players/PlayerUtils";
+import { championHasFollower, getChampionMovementBudget } from "../players/PlayerUtils";
 import { RandomPlayerAgent } from "../players/RandomPlayerAgent";
 import { calculateHarvest, getEligibleHarvestTiles } from "./actions/harvestCalculator";
-import { areOceanZonesAdjacent, calculateBoatMove, calculateChampionMove } from "./actions/moveCalculator";
+import { areOceanZonesAdjacent, calculateBoatMove, calculateChampionMove, MoveResult } from "./actions/moveCalculator";
 import { DiceRoller, RandomDiceRoller } from "./DiceRoller";
 import { DiceRolls } from "./DiceRolls";
 import { handleAdventureCard } from "./handlers/adventureCardHandler";
@@ -297,6 +297,7 @@ export class GameMaster {
 
       const diceRollValues = this.diceRoller.rollMultipleD3(actualDiceCount);
       this.playerDice.set(player.name, new DiceRolls(diceRollValues));
+      player.turnDice = diceRollValues.map((value) => ({ value }));
       this.addGameLogEntry("dice", `${player.name} rolled ${actualDiceCount} dice: ${diceRollValues.map(die => `[${die}]`).join(", ")}${actualFoodCost > 0 ? ` (paid ${actualFoodCost} food dice tax)` : ""}`);
     }
 
@@ -359,6 +360,7 @@ export class GameMaster {
         const remainingRolls = diceRolls.getRemainingRolls();
         if (remainingRolls.length > 0) {
           diceRolls.consumeDiceRoll(remainingRolls[0]);
+          this.markTurnDiceUsed(currentPlayer, [remainingRolls[0]], "action");
           this.addGameLogEntry("dice", `Consumed die [${remainingRolls[0]}] because no action could be executed`);
         }
       }
@@ -515,6 +517,23 @@ export class GameMaster {
       if (isMoving && this.gameState.fateEffects.lockdownPlayer === player.name) {
         throw new Error(`${player.name} is under Lockdown and cannot move knights this round`);
       }
+
+      // Validate that the movement path can actually be completed, so the player agent
+      // gets an explanatory error (and a retry) instead of a silently truncated move.
+      if (isMoving) {
+        const path = championAction.movementPathIncludingStartPosition!;
+        if (path[0].row !== champion.position.row || path[0].col !== champion.position.col) {
+          throw new Error(
+            `Champion ${championAction.championId} is at ${formatPosition(champion.position)}, but the movement path starts at ${formatPosition(path[0])}. The path must start at the champion's current position.`
+          );
+        }
+        const movementBudget = getChampionMovementBudget(champion, diceValues, this.gameState.fateEffects);
+        const moveResult = calculateChampionMove(this.gameState, player.name, path, movementBudget);
+        const target = path[path.length - 1];
+        if (moveResult.endPosition.row !== target.row || moveResult.endPosition.col !== target.col) {
+          throw new Error(this.describeInvalidChampionPath(champion, path, moveResult, movementBudget));
+        }
+      }
       return diceValues;
     }
 
@@ -571,10 +590,69 @@ export class GameMaster {
   }
 
   /**
+   * Explain why a champion movement path cannot be completed. This message is sent back
+   * to the player agent as an invalid-action error, so it should be self-explanatory.
+   */
+  private describeInvalidChampionPath(
+    champion: Champion,
+    path: Position[],
+    moveResult: MoveResult,
+    movementBudget: number,
+  ): string {
+    const target = path[path.length - 1];
+    // The tile that blocked the move is the one right after where the champion would stop
+    const stopIndex = path.findIndex(p => p.row === moveResult.endPosition.row && p.col === moveResult.endPosition.col);
+    const blockedPosition = stopIndex >= 0 && stopIndex + 1 < path.length ? path[stopIndex + 1] : target;
+    const prefix = `Movement path to ${formatPosition(target)} is not possible; the knight would stop at ${formatPosition(moveResult.endPosition)}: `;
+
+    switch (moveResult.stopReason) {
+      case "diceValueReached": {
+        const steps = path.length - 1;
+        const muleNote = championHasFollower(champion, "abandoned-mule")
+          ? " (the Abandoned Mule follower limits each die to 2 movement steps)"
+          : "";
+        return `${prefix}the path is ${steps} steps, but the dice used only allow up to ${movementBudget}${muleNote}.`;
+      }
+      case "settlingRestriction":
+        return `${prefix}the Settling fate card is active this round, so knights cannot move into a tile with another knight or a creature, and the tile at ${formatPosition(blockedPosition)} contains one.`;
+      case "monsterTile":
+        return `${prefix}knights must stop when entering a tile with a monster, so the path cannot continue past ${formatPosition(moveResult.endPosition)}.`;
+      case "unexploredTile":
+        return `${prefix}knights must stop when entering an unexplored tile, so the path cannot continue past ${formatPosition(moveResult.endPosition)}.`;
+      case "otherPlayerHome":
+        return `${prefix}knights cannot enter another player's home tile at ${formatPosition(blockedPosition)}.`;
+      case "ownChampion":
+        return `${prefix}the tile at ${formatPosition(blockedPosition)} already contains one of your own knights.`;
+      case "outOfBounds":
+        return `${prefix}the position ${formatPosition(blockedPosition)} is outside the board.`;
+      case "invalidMove":
+        return `${prefix}${formatPosition(moveResult.endPosition)} and ${formatPosition(blockedPosition)} are not adjacent (knights move one tile at a time, no diagonals).`;
+      default:
+        return `${prefix}${moveResult.stopReason}.`;
+    }
+  }
+
+  /**
+   * Mirror dice consumption onto the player's turnDice display state (used by the UI and replay).
+   */
+  private markTurnDiceUsed(player: Player, diceValues: number[], usedFor: "action" | "harvest"): void {
+    if (!player.turnDice) {
+      return;
+    }
+    for (const diceValue of diceValues) {
+      const die = player.turnDice.find((d) => !d.usedFor && d.value === diceValue);
+      if (die) {
+        die.usedFor = usedFor;
+      }
+    }
+  }
+
+  /**
    * Consume the dice for a validated action and execute it.
    */
   private async executeDiceAction(player: Player, diceAction: DiceAction, diceValues: number[], diceRolls: DiceRolls): Promise<void> {
     diceRolls.consumeMultipleDiceRolls(diceValues);
+    this.markTurnDiceUsed(player, diceValues, diceAction.actionType === "harvestAction" ? "harvest" : "action");
 
     if (diceAction.actionType === "championAction") {
       await this.executeChampionAction(player, diceAction.championAction!, diceValues, diceAction.reasoning);
@@ -720,6 +798,14 @@ export class GameMaster {
         } catch (error) {
           console.error("Error during harvest execution:", error);
           logFn("error", `Harvest failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        // The reserved dice are now spent, so show them as used rather than saved-for-harvest
+        if (player.turnDice) {
+          for (const die of player.turnDice) {
+            if (die.usedFor === "harvest") {
+              die.usedFor = "action";
+            }
+          }
         }
       }
 

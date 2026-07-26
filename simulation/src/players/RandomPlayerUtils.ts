@@ -3,13 +3,14 @@
 
 import { getTraderItemById } from "@/content/traderItems";
 import { getEligibleHarvestTiles } from "@/engine/actions/harvestCalculator";
+import { calculateChampionMove } from "@/engine/actions/moveCalculator";
 import { GameState } from "@/game/GameState";
 import { DiceAction, HarvestDecision, TileAction } from "@/lib/actionTypes";
 import { TraderCard } from "@/lib/cards";
 import { GameSettings } from "@/lib/GameSettings";
 import { TraderContext, TraderDecision } from "@/lib/traderTypes";
 import { Player, Position } from "@/lib/types";
-import { canAfford } from "./PlayerUtils";
+import { canAfford, getChampionMovementBudget } from "./PlayerUtils";
 
 // Random player behavior constants
 export const RANDOM_CONSTANTS = {
@@ -86,30 +87,34 @@ export function generateRandomChampionActions(
       },
     });
 
-    // Try some simple movements
-    for (let dRow = -1; dRow <= 1; dRow++) {
-      for (let dCol = -1; dCol <= 1; dCol++) {
-        if (dRow === 0 && dCol === 0) continue; // Skip staying in place
-        if (Math.abs(dRow) === Math.abs(dCol)) continue; // Skip diagonal moves for simplicity
-
-        const newRow = champion.position.row + dRow * dieValue;
-        const newCol = champion.position.col + dCol * dieValue;
-
-        if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
-          actions.push({
-            actionType: "championAction",
-            championAction: {
-              diceValueUsed: dieValue,
-              championId: champion.id,
-              movementPathIncludingStartPosition: [
-                champion.position,
-                { row: newRow, col: newCol },
-              ],
-              tileAction: generateRandomTileAction(player),
-            },
-          });
-        }
+    // Try straight-line movements in each of the four directions, as far as the die allows.
+    // The path is truncated to where the champion may actually stop (board edge, monsters,
+    // unexplored tiles, other players' homes, fate card restrictions, etc).
+    const budget = getChampionMovementBudget(champion, [dieValue], gameState.fateEffects);
+    for (const [dRow, dCol] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      const fullPath: Position[] = [champion.position];
+      for (let step = 1; step <= budget; step++) {
+        const next = { row: champion.position.row + dRow * step, col: champion.position.col + dCol * step };
+        if (next.row < 0 || next.row >= 8 || next.col < 0 || next.col >= 8) break;
+        fullPath.push(next);
       }
+      if (fullPath.length <= 1) continue;
+
+      const moveResult = calculateChampionMove(gameState, playerName, fullPath, budget);
+      const endIndex = fullPath.findIndex(
+        p => p.row === moveResult.endPosition.row && p.col === moveResult.endPosition.col
+      );
+      if (endIndex <= 0) continue; // Blocked immediately; staying in place is already an option
+
+      actions.push({
+        actionType: "championAction",
+        championAction: {
+          diceValueUsed: dieValue,
+          championId: champion.id,
+          movementPathIncludingStartPosition: fullPath.slice(0, endIndex + 1),
+          tileAction: generateRandomTileAction(player),
+        },
+      });
     }
   }
 

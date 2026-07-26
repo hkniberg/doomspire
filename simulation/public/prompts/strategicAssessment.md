@@ -5,7 +5,6 @@ You are player {{playerName}}.
 <current-board-state>
 {{boardState}}
 {{traderItems}}
-{{adventureCards}}
 </current-board-state>
 
 <game-log>
@@ -25,7 +24,7 @@ Think deeply about these areas:
 
 3. **Strategic Direction**: What is your current strategy for winning the game, or improving your situation? If you have an existing strategy from before, is it still valid? Or should it be tweaked or completely changed?
 
-4. **Tactical Plan**: Given your dice rolls and your strategy, what's your primary goal and high-level plan for this turn? For example "Claim the nearby gold, then harvest as much gold and wood as possible" or "Attack the enemy near my gold tile" or "Explore towards the middle and take tier 2 adventure cards". What game mechanics could you use to achieve your goals? Think broadly and be creative. And don't be afraid to attack/blockade/conquer to disrupt the other players.
+4. **Tactical Plan**: Given your dice rolls, the current fate card (shown in the board state, it applies this round only), and your strategy, what's your primary goal and high-level plan for this turn? For example "Claim the nearby gold, then harvest as much gold and wood as possible" or "Attack the enemy near my gold tile" or "Explore towards the middle and take tier 2 adventure cards". What game mechanics could you use to achieve your goals? Think broadly and be creative. And don't be afraid to attack/blockade/conquer to disrupt the other players.
 
 Summmarize this in 1-3 paragraphs.
 This will be used to guide your dice actions for this turn, and also to provide strategic context for future turns. Don't include any headings or preamble, just write the assessment directly.

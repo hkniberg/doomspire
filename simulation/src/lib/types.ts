@@ -126,6 +126,12 @@ export interface PlayerStatistics {
   adventureCards: number;
 }
 
+/** One of the dice a player rolled this round, and how it has been spent (if at all) */
+export interface TurnDie {
+  value: number;
+  usedFor?: "action" | "harvest";
+}
+
 export interface Player {
   name: string;
   color: string; // Player's assigned color (hex code)
@@ -141,6 +147,7 @@ export interface Player {
   statistics?: PlayerStatistics; // Match statistics tracking
   finalRank?: "King of Doomspire" | "Hand of the King" | "Master of Coin" | "Court Jester"; // Final ranking when game ends
   impressedDragonThisRound?: boolean; // A player can impress the dragon at most once per round
+  turnDice?: TurnDie[]; // The dice rolled this round, with used flags (for UI display and replay)
   specialTileUsesThisRound?: Partial<Record<"temple" | "mercenary" | "trader", boolean>>; // Special locations can only be used once per round
 }
 
