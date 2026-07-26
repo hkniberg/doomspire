@@ -3,7 +3,7 @@ import { EventCardResult } from "@/lib/types";
 
 /**
  * Handle the You Got Riches! event card
- * A shouting genie grants wishes - all players get resources and all oases gain mystery cards
+ * A shouting genie grants wishes - all players get resources and all oases gain adventure tokens
  */
 export function handleYouGotRiches(
   gameState: GameState,
@@ -30,7 +30,6 @@ export function handleYouGotRiches(
     logFn("event", `${player.name} receives 1 food, 1 wood, 1 ore, and 1 gold from the genie's wishes`);
   }
 
-  // Add +1 adventure token (mystery card) to all oasis tiles
   let oasisCount = 0;
   gameState.board.forEachTile((tile) => {
     if (tile.tileType === "oasis") {
@@ -40,13 +39,13 @@ export function handleYouGotRiches(
   });
 
   if (oasisCount > 0) {
-    logFn("event", `All ${oasisCount} oasis tiles gained +1 mystery card from the genie's magic`);
+    logFn("event", `All ${oasisCount} oasis tiles gained +1 adventure token from the genie's magic`);
   }
 
   return {
     eventProcessed: true,
     playersAffected: gameState.players.map(p => p.name),
     resourcesChanged,
-    oasisTokensAdded: oasisCount
+    adventureTokensAdded: oasisCount
   };
 } 

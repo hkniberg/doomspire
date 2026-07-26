@@ -619,6 +619,8 @@ export class GameMaster {
         return `${prefix}knights must stop when entering a tile with a monster, so the path cannot continue past ${formatPosition(moveResult.endPosition)}.`;
       case "unexploredTile":
         return `${prefix}knights must stop when entering an unexplored tile, so the path cannot continue past ${formatPosition(moveResult.endPosition)}.`;
+      case "doomspireTile":
+        return `${prefix}knights must stop when entering Doomspire and face the dragon, so the path cannot continue past ${formatPosition(moveResult.endPosition)}.`;
       case "otherPlayerHome":
         return `${prefix}knights cannot enter another player's home tile at ${formatPosition(blockedPosition)}.`;
       case "ownChampion":

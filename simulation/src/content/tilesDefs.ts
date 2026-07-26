@@ -124,7 +124,7 @@ export const TIER_2_TRIOS: TileTrioDef[] = [
   },
   {
     corner: ["wood", "wood"],
-    right: "oasis",
+    right: "oasis2",
     below: "adventure2",
   },
   {

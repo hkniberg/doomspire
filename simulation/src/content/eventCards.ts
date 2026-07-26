@@ -62,7 +62,7 @@ If so, *every player* must send **1 champion** to the trader, or refuse and pay 
     id: "sudden-storm",
     name: "Sudden storm",
     tier: 2,
-    description: "All **boats** move into an adjacent *sea*. All **oases** and **mountain tiles** gain `+1 mystery card`.",
+    description: "All **boats** move into an adjacent *ocean zone*. All **oases** and **mountain tiles** gain `+1 adventure token`.",
     count: 2,
     theme: "beast",
   },
@@ -120,7 +120,7 @@ If so, *every player* must send **1 champion** to the trader, or refuse and pay 
     name: "Riches for all!",
     tier: 2,
     description:
-      "A shouting **genie** is granting everyone wishes. All players collect `1x food, ore, wood, gold`. All *oasis* also gain `+1 mystery card`.",
+      "A shouting **genie** is granting everyone wishes. All players collect `1x food, ore, wood, gold`. All *oases* also gain `+1 adventure token`.",
     count: 2,
     theme: "cave",
   },

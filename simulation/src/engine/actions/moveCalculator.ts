@@ -10,6 +10,7 @@ export interface MoveResult {
   | "diceValueReached"
   | "unexploredTile"
   | "monsterTile"
+  | "doomspireTile"
   | "invalidMove"
   | "outOfBounds"
   | "otherPlayerHome"
@@ -125,6 +126,14 @@ export function calculateChampionMove(
       return {
         endPosition: nextPosition,
         stopReason: "monsterTile"
+      };
+    }
+
+    // The dragon cannot be dodged - entering Doomspire always ends the movement
+    if (tile.tileType === "doomspire") {
+      return {
+        endPosition: nextPosition,
+        stopReason: "doomspireTile"
       };
     }
 

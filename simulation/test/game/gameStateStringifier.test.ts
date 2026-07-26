@@ -119,8 +119,7 @@ Tile (1,5)
 - Unexplored tier 1 tile
 
 Tile (1,6)
-- Tier 1 adventure tile (explored)
-- No adventure cards left
+- Tier 1 adventure tile (0 cards left)
 - Monster: bandit (might 3) (reward 1 fame, 3 gold)
 
 Tile (1,7)
@@ -142,7 +141,7 @@ Tile (2,4)
 - Unexplored tier 1 tile
 
 Tile (2,5)
-- Tier 2 adventure tile (explored)
+- Tier 2 adventure tile (2 cards left)
 - Jim champion1 is here
 
 Tile (2,6)
@@ -301,12 +300,12 @@ Tile (7,7)
     // Test 4: Adventure tile with monster and no tokens
     const adventureTile = sampleGameState.getTile({ row: 1, col: 6 })!;
     const adventureResult = stringifyTileForGameLog(adventureTile, sampleGameState);
-    expect(adventureResult).toBe("This is an adventure tile (explored). No adventure cards left. There is a bandit (might 3) (reward 1 fame, 3 gold) here.");
+    expect(adventureResult).toBe("This is a tier 1 adventure tile (0 cards left). There is a bandit (might 3) (reward 1 fame, 3 gold) here.");
 
-    // Test 4b: Adventure tile with tokens (should not mention tokens)
+    // Test 4b: Adventure tile with remaining tokens
     const adventureTileWithTokens = sampleGameState.getTile({ row: 2, col: 5 })!;
     const adventureWithTokensResult = stringifyTileForGameLog(adventureTileWithTokens, sampleGameState, "Jim");
-    expect(adventureWithTokensResult).toBe("This is an adventure tile (explored).");
+    expect(adventureWithTokensResult).toBe("This is a tier 2 adventure tile (2 cards left).");
 
     // Test 5: Temple with champion
     const templeTile = sampleGameState.getTile({ row: 3, col: 5 })!;

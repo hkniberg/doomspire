@@ -43,9 +43,9 @@ The board is an 8x8 grid of land tiles surrounded by 4 L-shaped ocean tiles in t
 The board is divided into four regions: Ocean, Flatlands, Hills, and Mountains, with increased level of risk & reward as you move towards the mountains in the center.
 
 - **Ocean zones**: The surrounding ocean is divided into 4 ocean zones - northwest, northeast, southwest, southeast.
-- **Flatlands**: These are the outer 2 layers of the 8x8 grid. The outermost tiles are coastal tiles, allowing boat transport.
+- **Flatlands**: These are the outer 2 layers of the 8x8 grid, holding resource tiles, adventure tiles, oases, wolf dens, and the three special locations. The outermost tiles are coastal tiles, allowing boat transport.
 - **Hills**: This is the second innermost layer of tiles, a ring of tiles surrounding the center.
-- **Mountains**: These are the center 4 tiles, containing dragonspire and 3 adventure tiles with high risk/reward.
+- **Mountains**: These are the center 4 tiles, containing Doomspire and 3 adventure tiles with high risk/reward.
 
 All hill and mountain tiles start unexplored (face down). The hill tiles are a mix of adventure tiles, bear dens, an oasis, and starred resource tiles — you don't know which until you explore.
 
@@ -124,7 +124,7 @@ Use a dice to move one knight up to that number of steps, and potentially intera
 
 - Only horizontal/vertical movement, no diagonal
 - Can move fewer steps than the die value, or even move zero steps to interact with your current tile.
-- Stop when entering an unexplored tile or tile with monster on it.
+- Stop when entering an unexplored tile, a tile with a monster on it, or Doomspire.
 - Cannot move a knight into another player's home tile.
 
 **Interacting with other knights**:
@@ -137,7 +137,7 @@ Use a dice to move one knight up to that number of steps, and potentially intera
 
 - You may combine two or more action dice into one longer movement for a single knight. The step values add up: combining a 1 and a 2 lets the knight move up to 3 steps, exactly as if you had used a single die showing 3.
 - You can also spend dice on the same knight one at a time: move it, and as long as it has not interacted with a tile, move it again with another die.
-- Normal movement rules still apply while sprinting: you must stop when entering an unexplored tile or a tile with a monster, and once the knight interacts with a tile it cannot use any more action dice this turn.
+- Normal movement rules still apply while sprinting: you must stop when entering an unexplored tile, a tile with a monster, or Doomspire, and once the knight interacts with a tile it cannot use any more action dice this turn.
 
 **Tile interaction rules**:
 
@@ -175,7 +175,7 @@ Use a dice to move a boat up to that number of steps, and optionally transport a
 
 ### Tile interaction
 
-When a knight enters a tile, Tile Interaction may happen, automatically and/or voluntarily.
+When a knight enters a tile and stops there, Tile Interaction may happen, automatically and/or voluntarily. Tiles that a knight merely passes through are not interacted with.
 
 **Automatic interactions** (in sequence):
 
@@ -183,8 +183,8 @@ When a knight enters a tile, Tile Interaction may happen, automatically and/or v
   - Gain 1 fame for exploring.
   - If it is a den or a starred resource tile, add a monster: a wolf in the flatlands, a bear in the hills.
 - **Combat**: If a monster is on the tile, combat will happen. See Combat section below.
-- **Impress the dragon**: If you enter Doomspire, you must impress the dragon or be eaten. See Doomspire section below.
-- **Adventure**: If you enter an adventure or oasis tile that has remaining adventure tokens, you must draw a card. See Adventure Cards section below.
+- **Impress the dragon**: If you enter Doomspire your movement ends there, and you must impress the dragon or be eaten. The dragon cannot be passed by. See Doomspire section below.
+- **Adventure**: If you end your movement on an adventure or oasis tile that has remaining adventure tokens, you must draw a card. Passing through such a tile does not trigger this. See Adventure Cards section below.
   - Exception: If combat has already happened, then don't draw an adventure card. Your knight is too exhausted.
 
 **Voluntary interactions**:
@@ -256,7 +256,9 @@ One fate card is drawn each round during the fate phase, before dice are rolled.
 
 ## Adventure cards
 
-An adventure card is drawn when a knight enters an unoccupied adventure tile or oasis tile that has remaining adventure tokens.
+An adventure card is drawn when a knight ends its movement on an unoccupied adventure tile or oasis tile that has remaining adventure tokens. A knight that only passes through such a tile does not draw a card.
+
+An **oasis** works exactly like an adventure tile, except that some cards can restock its adventure tokens later in the game.
 
 ### Adventure card tiers
 

@@ -21,7 +21,7 @@ The rest of this document is the evidence.
 | --- | --- | --- | --- | --- |
 | **Opus 5** (Oliver) | Best — several load-bearing inferences | Narrowest, but deliberately so | Best by a clear margin | Flawless after round 5 |
 | **Fable 5** (Fabian) | Very good, widest coverage | Widest by far | Good, but reactive | Creative; some avoidable variance |
-| **Sonnet 5** (Sam, Sarah) | Good with a recurring blind spot | Narrow, and by omission | Adequate; weak on milestones | Recurring unforced errors |
+| **Sonnet 5** (Sam, Sarah) | Good; real slips on combat math, but the adventure-tile errors were harness-caused (see correction) | Narrow, and by omission | Adequate; weak on milestones | Recurring unforced errors |
 
 ## Opus 5 — Oliver
 
@@ -56,6 +56,8 @@ Two seats gives a better read than one, and the two Sonnet players had noticeabl
 
 **Rules comprehension — one real, repeated blind spot.** Sarah twice moved a knight onto an already-explored adventure tile believing it was inert, writing in her stated reason that "already explored... so no adventure draw triggers." Both times she drew a card, and both times it wrecked the multi-die support plan she had built the turn around — the second one (round 10, a Thug Ambush that stole her gold) cost her the bear fight she was setting up. To her credit she corrected it by round 11, explicitly routing around "an unresolved adventure tile." Sam, meanwhile, understood the rule correctly and deliberately avoided an untouched oasis for exactly this reason. So this is a Sonnet-level inconsistency rather than a flat gap.
 
+> **Correction added after the match (2026-07-26).** Discount this finding heavily — the harness caused most of it. The stringified game state never reported how many adventure tokens a tile held; it printed `Tier 1 adventure tile (explored)` whether the tile had two cards on it or none, and printed oases as a bare `Tier 1 oasis` with no hint that they were adventure tiles at all. The rules text was also ambiguous about whether entering meant passing through or ending movement on a tile. Opus and Fable made the same mistake as Sarah: both repeatedly described oases as "empty" and routed straight through them, so four untouched oases sat on the board holding two cards each for the whole game. Since the two models rated highest on rules comprehension failed the same way, this is not a Sonnet trait. The game state now reports token counts for both tile types and the rules say "ends its movement on" explicitly.
+
 Sarah also evaluated her round-12 attack on might alone and ignored that the defender had a knight adjacent for +2 support. She lost 9–7, which is precisely the margin that support accounted for. Her reasoning on that turn also contains an incoherent sentence about the odds ("my minimum roll of 5 beats his maximum of 6 only occasionally"), suggesting the arithmetic was not actually being done.
 
 Sam's rules understanding was better than Sarah's in places — he correctly worked out that monster combat never costs items (so the egg was safe from everything except PvP), and his round-13 retreat into the trader tile to hide the egg in a non-combat zone was a genuinely good rules-exploiting defensive play. But his round-10 stated reason contains a visible self-interruption mid-thought ("...wait, actually egg is on champion1, but loss only costs a resource, not the egg itself, so still fine"), which is unpolished reasoning leaking straight into the action log.
@@ -72,6 +74,7 @@ Sarah was the better strategist of the two: her multi-die support sequencing was
 - **Board position is a real confound and it favoured Opus.** Oliver's southwest quadrant was monster-free and resource-rich — he said so himself in round 1. The other three all had wolf-guarded tiles adjacent to home and all lost those fights. So "Opus never lost a combat" partly reflects a corner that never forced one. That said, Opus also *declined* optional 67% fights and optional explorations that the others took, so temperament is doing some of the work too.
 - **The dice were unusually cruel to the aggressive players.** The table went 2-for-9 on 67% wolf fights. Fable and Sonnet both took those fights; Opus did not. A normal dice run would have narrowed the visible gap considerably without changing the quality of the underlying decisions.
 - **Outcome is a weak signal here; process is the stronger one.** My ranking above is based on the stated reasoning quality, not on who won.
+- **Some of what looks like a rules error is a harness error.** The adventure/oasis case above is the clear example: all four models misread tiles that the game state was describing incompletely. When a log shows several players making the same rules mistake, check what the game state actually told them before scoring it against the model.
 
 ## Practical guidance by playtest goal
 

@@ -56,10 +56,7 @@ export function stringifyTileForGameLog(tile: Tile, gameState: GameState, ignore
         sentences.push(resourceDescription);
         break;
       case "adventure":
-        sentences.push("This is an adventure tile (explored)");
-        if (tile.adventureTokens === 0) {
-          sentences.push("No adventure cards left");
-        }
+        sentences.push(`This is a tier ${tile.tier} adventure tile (${formatAdventureTokens(tile)})`);
         break;
       case "temple":
         sentences.push(`This is a temple (no combat). Sacrifice ${GameSettings.TEMPLE_FAME_COST} fame to gain 1 might (once per round)`);
@@ -76,7 +73,7 @@ export function stringifyTileForGameLog(tile: Tile, gameState: GameState, ignore
         sentences.push(`There is a Dragon here (might ${GameSettings.DRAGON_BASE_MIGHT} + 2D3). Impress it or be eaten`);
         break;
       case "oasis":
-        sentences.push("This is an oasis");
+        sentences.push(`This is a tier ${tile.tier} oasis, an adventure tile (${formatAdventureTokens(tile)})`);
         break;
       case "wolfDen":
         sentences.push(tile.monster ? "This is a wolf den" : "This is an empty wolf den (wolf slain)");
@@ -118,6 +115,11 @@ export function stringifyTileForGameLog(tile: Tile, gameState: GameState, ignore
   }
 
   return sentences.join(". ") + ".";
+}
+
+function formatAdventureTokens(tile: Tile): string {
+  const tokens = tile.adventureTokens ?? 0;
+  return `${tokens} card${tokens === 1 ? "" : "s"} left`;
 }
 
 function formatGameSession(gameState: GameState): string {
@@ -290,18 +292,9 @@ function formatTileForBoard(tile: Tile, gameState: GameState): string {
             lines.push("- Protected by unit in neighbouring tile");
           }
         }
-        if (tile.monster) {
-          lines.push(`- Monster: ${formatMonsterInfo(tile.monster)}`);
-        }
         break;
       case "adventure":
-        lines.push(`- Tier ${tile.tier} adventure tile (explored)`);
-        if (tile.adventureTokens === 0) {
-          lines.push(`- No adventure cards left`);
-        }
-        if (tile.monster) {
-          lines.push(`- Monster: ${formatMonsterInfo(tile.monster)}`);
-        }
+        lines.push(`- Tier ${tile.tier} adventure tile (${formatAdventureTokens(tile)})`);
         break;
       case "temple":
         lines.push(`- Temple (no combat). Sacrifice ${GameSettings.TEMPLE_FAME_COST} fame to gain 1 might (once per round)`);
@@ -319,26 +312,20 @@ function formatTileForBoard(tile: Tile, gameState: GameState): string {
         }
         break;
       case "oasis":
-        lines.push(`- Tier ${tile.tier} oasis`);
+        lines.push(`- Tier ${tile.tier} oasis, an adventure tile (${formatAdventureTokens(tile)})`);
         break;
       case "wolfDen":
-        if (tile.monster) {
-          lines.push("- Wolf Den");
-          lines.push(`- Monster: ${formatMonsterInfo(tile.monster)}`);
-        } else {
-          lines.push("- Wolf Den (empty, wolf slain)");
-        }
+        lines.push(tile.monster ? "- Wolf Den" : "- Wolf Den (empty, wolf slain)");
         break;
       case "bearCave":
-        if (tile.monster) {
-          lines.push("- Bear Cave");
-          lines.push(`- Monster: ${formatMonsterInfo(tile.monster)}`);
-        } else {
-          lines.push("- Bear Cave (empty, bear slain)");
-        }
+        lines.push(tile.monster ? "- Bear Cave" : "- Bear Cave (empty, bear slain)");
         break;
       default:
         lines.push(`- Tier ${tile.tier} tile`);
+    }
+
+    if (tile.monster) {
+      lines.push(`- Monster: ${formatMonsterInfo(tile.monster)}`);
     }
   }
 

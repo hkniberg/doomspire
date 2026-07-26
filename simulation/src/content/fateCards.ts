@@ -183,7 +183,7 @@ export const FATE_CARDS: FateCard[] = [
     name: "Oasis Bloom",
     type: "event",
     flavorText: "Springs bubble up from the earth.",
-    effect: "All oasis tiles and adventure tiles with 0 remaining tokens gain **+1 adventure token**.",
+    effect: "All oasis tiles gain **+1 adventure token**.",
   },
   {
     id: "storm-season",

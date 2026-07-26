@@ -81,7 +81,7 @@ export default function CheatSheet() {
               <h3 className={styles.sectionTitle}>MOVEMENT RULES</h3>
               <ul className={styles.bulletList}>
                 <li>Horizontal/vertical only (no diagonal)</li>
-                <li>Must stop when entering unexplored tile or tile with monster</li>
+                <li>Must stop when entering unexplored tile, tile with monster, or Doomspire</li>
                 <li>Cannot enter a tile with your own knight (except special tiles)</li>
                 <li>Stopping on an opposing knight = combat</li>
                 <li>Can pass through opposing knights (they may force combat)</li>
@@ -165,7 +165,7 @@ export default function CheatSheet() {
                   up/drop items
                 </li>
                 <li>
-                  <strong>Adventure Tiles</strong>: Draw card, remove adventure token
+                  <strong>Adventure/Oasis Tiles</strong>: Draw card, remove adventure token
                 </li>
                 <li>
                   <strong>Non-Combat Zones</strong>: Temple, Trader, Mercenary Camp (multiple knights allowed)

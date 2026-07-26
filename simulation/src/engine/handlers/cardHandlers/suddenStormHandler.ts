@@ -8,7 +8,7 @@ export function handleSuddenStorm(
   gameState: GameState,
   logFn: (type: string, content: string) => void
 ): EventCardResult {
-  logFn("event", "Sudden Storm! All boats move into an adjacent sea. All oases gain +1 mystery card.");
+  logFn("event", "Sudden Storm! All boats move into an adjacent ocean zone. All oases and mountain tiles gain +1 adventure token.");
 
   // Move all boats to adjacent ocean positions
   const movedBoats: string[] = [];
@@ -27,23 +27,24 @@ export function handleSuddenStorm(
     }
   }
 
-  // Add +1 adventure token to all oasis tiles
-  let oasisCount = 0;
+  // The mountains are the tier 3 tiles in the centre; only their adventure tiles hold tokens
+  let restockedCount = 0;
   gameState.board.forEachTile((tile) => {
-    if (tile.tileType === "oasis") {
+    const isMountainAdventure = tile.tier === 3 && tile.tileType === "adventure";
+    if (tile.tileType === "oasis" || isMountainAdventure) {
       tile.adventureTokens = (tile.adventureTokens || 0) + 1;
-      oasisCount++;
+      restockedCount++;
     }
   });
 
-  if (oasisCount > 0) {
-    logFn("event", `All ${oasisCount} oasis tiles gained +1 mystery card`);
+  if (restockedCount > 0) {
+    logFn("event", `${restockedCount} oasis and mountain tiles gained +1 adventure token`);
   }
 
   return {
     eventProcessed: true,
     boatsMoved: true,
-    oasisTokensAdded: oasisCount
+    adventureTokensAdded: restockedCount
   };
 }
 

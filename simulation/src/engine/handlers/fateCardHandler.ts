@@ -306,12 +306,12 @@ export async function resolveFateCard(
     case "oasis-bloom": {
       let tilesRefreshed = 0;
       gameState.board.forEachTile((tile) => {
-        if ((tile.tileType === "oasis" || tile.tileType === "adventure") && tile.adventureTokens === 0) {
-          tile.adventureTokens = 1;
+        if (tile.tileType === "oasis") {
+          tile.adventureTokens = (tile.adventureTokens || 0) + 1;
           tilesRefreshed++;
         }
       });
-      logFn("fate", `Oasis Bloom: ${tilesRefreshed} depleted adventure/oasis tile(s) gain +1 adventure token.`);
+      logFn("fate", `Oasis Bloom: ${tilesRefreshed} oasis tile(s) gain +1 adventure token.`);
       break;
     }
 

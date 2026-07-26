@@ -300,6 +300,6 @@ export interface EventCardResult {
   playersAffected?: string[];
   resourcesChanged?: Record<string, { food?: number; wood?: number; ore?: number; gold?: number }>;
   boatsMoved?: boolean;
-  oasisTokensAdded?: number;
+  adventureTokensAdded?: number;
   errorMessage?: string;
 }
